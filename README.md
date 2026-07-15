@@ -93,6 +93,13 @@ See [docs/controls.md](docs/controls.md) for display feedback and MIDI details.
 - [Controls, modes, and MIDI](docs/controls.md)
 - [Clean-room reverse engineering](docs/reverse-engineering.md)
 - [Building from source](docs/building.md)
+- [Hardware testing checklist](docs/hardware-testing.md)
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the build,
+test, hardware-validation, and clean-room requirements. Coding agents should
+also follow the repository instructions in [AGENTS.md](AGENTS.md).
 
 ## Project layout
 
