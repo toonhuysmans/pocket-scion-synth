@@ -89,6 +89,7 @@ See [docs/controls.md](docs/controls.md) for display feedback and MIDI details.
 
 - [Platform and peripherals](docs/platform.md)
 - [Firmware architecture](docs/architecture.md)
+- [Banks, scenes, and parameters](docs/banks-and-parameters.md)
 - [Controls, modes, and MIDI](docs/controls.md)
 - [Clean-room reverse engineering](docs/reverse-engineering.md)
 - [Building from source](docs/building.md)
