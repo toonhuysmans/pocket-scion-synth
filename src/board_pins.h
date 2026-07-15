@@ -1,0 +1,17 @@
+#pragma once
+
+enum {
+    PIN_SENSOR = 0,
+    PIN_RGB_DATA = 1,
+    PIN_I2S_DATA = 12,
+    PIN_I2S_BCLK = 13,
+    PIN_I2S_LRCLK = 14,
+    PIN_MIDI_TX = 16,
+    PIN_BUTTON_ROOT_UP = 17,
+    PIN_BUTTON_ROOT_DOWN = 18,
+    PIN_BUTTON_MODE = 19,
+    PIN_BUTTON_SENS_DOWN = 20,
+    PIN_BUTTON_SENS_UP = 21,
+    PIN_AUX_ACTIVE_LOW = 27,
+    PIN_AUX_ACTIVE_HIGH = 29,
+};

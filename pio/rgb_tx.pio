@@ -1,0 +1,33 @@
+; Exact WS2812 transmitter recovered from Pocket SCION v1.0.1 at
+; 0x100108AC. The four encoded instructions are 6221 1123 1400 A442.
+; At an 8 MHz state-machine clock, each bit occupies ten cycles (800 kHz).
+
+.program rgb_tx
+.side_set 1
+
+.wrap_target
+bitloop:
+    out x, 1       side 0 [2]
+    jmp !x do_zero side 1 [1]
+    jmp bitloop    side 1 [4]
+do_zero:
+    nop            side 0 [4]
+.wrap
+
+% c-sdk {
+static inline void rgb_tx_program_init(PIO pio, uint sm, uint offset,
+                                       uint pin, float frequency_hz) {
+    pio_gpio_init(pio, pin);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true);
+
+    pio_sm_config config = rgb_tx_program_get_default_config(offset);
+    sm_config_set_sideset_pins(&config, pin);
+    sm_config_set_out_shift(&config, false, true, 24);
+    sm_config_set_fifo_join(&config, PIO_FIFO_JOIN_TX);
+    sm_config_set_clkdiv(&config,
+        (float)clock_get_hz(clk_sys) / (frequency_hz * 10.0f));
+
+    pio_sm_init(pio, sm, offset, &config);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

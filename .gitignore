@@ -1,0 +1,16 @@
+.DS_Store
+.vscode/
+.idea/
+build/
+build-*/
+cmake-build-*/
+*.bin
+*.dis
+*.elf
+*.hex
+*.map
+*.o
+
+# Keep the curated release UF2, ignore ad-hoc build copies.
+*.uf2
+!releases/*.uf2

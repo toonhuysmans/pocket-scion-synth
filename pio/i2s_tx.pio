@@ -1,0 +1,25 @@
+; Exact eight-instruction I2S transmitter recovered from Pocket SCION v1.0.1.
+; Its encoded words match the original binary at 0x10B85094 byte-for-byte:
+; 7001 1840 6001 E82E 6001 0844 7001 F82E.
+;
+; One 32-bit FIFO word contains sample(ws=0)[31:16], sample(ws=1)[15:0].
+; OUT shifts left with autopull threshold 32. Side-set bit 0 drives BCLK
+; (GPIO13); side-set bit 1 drives LRCLK (GPIO14).
+
+.program i2s_tx
+.side_set 2
+
+.wrap_target
+bitloop1:
+    out pins, 1       side 0b10
+    jmp x-- bitloop1  side 0b11
+    out pins, 1       side 0b00
+    set x, 14         side 0b01
+
+bitloop0:
+    out pins, 1       side 0b00
+    jmp x-- bitloop0  side 0b01
+    out pins, 1       side 0b10
+public entry_point:
+    set x, 14         side 0b11
+.wrap

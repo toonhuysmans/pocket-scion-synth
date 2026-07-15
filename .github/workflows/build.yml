@@ -1,0 +1,41 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gcc-arm-none-eabi libnewlib-arm-none-eabi
+
+      - name: Fetch Pico SDK 2.2.0
+        run: |
+          git clone --depth 1 --branch 2.2.0 https://github.com/raspberrypi/pico-sdk.git "$RUNNER_TEMP/pico-sdk"
+          git -C "$RUNNER_TEMP/pico-sdk" submodule update --init
+
+      - name: Test sensor mathematics
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -Isrc \
+            src/sensor_math.c tests/test_sensor_math.c \
+            -lm -o "$RUNNER_TEMP/test_sensor_math"
+          "$RUNNER_TEMP/test_sensor_math"
+
+      - name: Build UF2
+        env:
+          PICO_SDK_PATH: ${{ runner.temp }}/pico-sdk
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Upload UF2
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocket-scion-synth-uf2
+          path: build/pocket_scion_synth.uf2
