@@ -43,6 +43,18 @@ The SHA-256 digest is:
 Use moderate monitoring volume for the first boot. A short A/E/A startup chord
 confirms that the audio path is working before sensor input begins.
 
+## Restore the factory firmware
+
+You can return to Instruō's original sample-based firmware at any time. Download
+the official [Pocket SCÍON firmware 1.0.1 UF2](https://www.instruomodular.com/wp-content/uploads/firmware/pocket_scion_v1.0.1.uf2)
+from Instruō, enter the RP2040 USB bootloader as described above, and copy that
+UF2 to the `RPI-RP2` volume.
+
+If the direct download changes, use Instruō's
+[official firmware support page](https://www.instruomodular.com/firmware/) and
+select the latest firmware listed under **Pocket SCÍON**. The factory firmware
+is linked rather than redistributed by this project.
+
 ## How it works
 
 GPIO0 supplies edge timestamps from the biofeedback oscillator. Ten accepted
