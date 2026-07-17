@@ -12,7 +12,7 @@ repeating after a 400 ms hold and repeat every 120 ms.
 | Instrument press | Next patch | Patch colour |
 | Instrument double press | Next bank | Bank/patch colour |
 | Instrument triple press | Toggle MIDI channel mode | Green single / red multi |
-| Hold Instrument ~0.9 s | Toggle pitch-bend bank | Pitch-bend colour accent |
+| Hold Instrument ~0.9 s | Toggle pitch-bend layer | Pitch-bend colour accent |
 
 Single and double presses resolve after a 320 ms multi-click window.
 
@@ -42,11 +42,47 @@ fires. Raw mode uses a separate white pulse display.
 
 ## MIDI output
 
-Both physical DIN MIDI on GPIO16 and USB MIDI are sent simultaneously.
+The same MIDI is sent over USB and the Type-A TRS MIDI output. The firmware is
+currently MIDI output only: incoming notes and controls do not play or change
+the internal synth.
 
-- Single-channel mode: MIDI channel 1
-- Multichannel mode: rhythm lanes on MIDI channels 1, 2, and 3
-- Notes and ratchets include velocity and matching note-off messages
-- Pitch-bend mode sends 14-bit pitch bend
-- Live timbre motion is mirrored with useful MIDI CC messages
-- Mode/program transitions send All Notes Off where necessary
+### Channel modes
+
+- **Single-channel:** every part is sent on MIDI channel 1.
+- **Multichannel:** bass, melody, and upper parts use channels 1, 2, and 3.
+
+Toggle the mode with an Instrument triple-press or by holding both Volume
+buttons for three seconds.
+
+### Musical output
+
+MIDI includes generated notes and velocities, note durations, ratchets as
+repeated notes, bank and patch changes, sensor-controlled pitch bend, and live
+filter/expression movement. Up to four notes can sound simultaneously.
+Repeated pitches may be tied into longer notes rather than retriggered.
+
+| MIDI message | Musical function |
+|---|---|
+| CC 1 | Sensor modulation |
+| CC 2 | Breath/expression |
+| CC 7 | Volume |
+| CC 20 | Sensor sensitivity |
+| CC 21 | Note duration |
+| CC 22 | Root note |
+| CC 71 | Filter resonance |
+| CC 74 | Filter cutoff |
+| Pitch Bend | Sensor-derived pitch movement when enabled |
+
+These messages allow an external synth, DAW, or visual system to follow the
+same plant-driven movement as the internal synth. Standard Bank Select and
+Program Change messages identify the eight banks and sixteen patches per bank.
+
+Raw Output Mode produces the sensor pulse train as audio; it does not send raw
+sensor pulses over MIDI, and generated MIDI notes stop while raw mode is active.
+
+The firmware does not currently send MIDI Clock, transport messages,
+aftertouch, or SysEx. External instruments can follow its notes and expression,
+but cannot synchronize to its internal rhythm through MIDI Clock.
+
+See [Banks, scenes, and parameters](banks-and-parameters.md#midi-parameter-output)
+for the complete implementation-level message map.
