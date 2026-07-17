@@ -5,7 +5,7 @@ the RP2040 hardware into a real-time, sensor-driven polyphonic synthesizer.
 Instead of selecting prerecorded samples, it generates every sound live with
 oscillators, filters, envelopes, LFOs, chorus, delay, and four-voice polyphony.
 
-[Watch the demo](https://youtu.be/5qdIYkmIK2Y)
+[![Watch the video](https://img.youtube.com/vi/5qdIYkmIK2Y/maxresdefault.jpg)](https://youtu.be/5qdIYkmIK2Y)
 
 This is an independent community project. It is not affiliated with or
 endorsed by Instruō. Pocket SCION and Instruō are trademarks of their
