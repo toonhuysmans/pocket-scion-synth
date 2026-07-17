@@ -42,10 +42,13 @@ three active parts to the centre, middle, and outer ring respectively.
 ## RP2040 resource strategy
 
 The full effects engine remains in the SRAM hot path. Both compact dry engine
-states fit in RAM, but inlining their second template specialization into the
-hot renderer would overflow RP2040 SRAM. They therefore share one non-inlined,
-flash-resident DSP entry point. The Release build leaves approximately 20 KiB
-of main SRAM before the separately allocated core stacks.
+states fit in RAM, but inlining their second template specialization twice into
+the hot renderer would overflow RP2040 SRAM. They therefore share one
+non-inlined SRAM DSP entry point. An initial flash-resident experiment clicked
+audibly on hardware and was removed; no per-sample DSP now runs from XIP flash.
+For CPU headroom, core 1 renders upper concurrently with bass on core 0. Core 0
+then mixes them and renders the middle/effects stage. Monophonic parts also skip
+low-rate envelope, oscillator, filter, and amp updates for inactive voices.
 
 This tradeoff must be tested on a physical Pocket SCION for XIP-cache timing,
 audio underruns, clicking under high pressure, effect-heavy scenes, ratchets,

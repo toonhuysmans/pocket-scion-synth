@@ -26,3 +26,11 @@ On this multitimbral branch, the monophonic process path omits upstream's
 secondary-core request/wait handshake because that branch performs no
 secondary-core DSP work. Polyphonic and paraphonic paths retain the upstream
 two-core behavior.
+
+All per-sample PRA32-U code remains in SRAM. In particular, the shared dry-part
+specialization must not be moved to XIP flash: hardware testing showed audible
+cache-miss clicking even with lookup tables retained in SRAM.
+
+The monophonic low-rate scheduler skips oscillator, filter, amplifier, and
+envelope updates for inactive voices 1–3. Pocket SCION renders its independent
+upper part on core 1 instead of asking PRA32-U to calculate unused voices.

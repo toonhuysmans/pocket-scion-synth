@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "midi_uart.h"
+#include "hardware/sync.h"
 #include "pico/multicore.h"
 #include "pico/platform.h"
 #include "raw_capture.h"
@@ -29,6 +30,9 @@ PRA32_U_Synth<true> upper_engine;
 constexpr uint8_t bass_lane = 0u;
 constexpr uint8_t middle_lane = 1u;
 constexpr uint8_t upper_lane = 2u;
+
+volatile uint32_t upper_render_request = 0u;
+volatile int16_t upper_render_result = 0;
 
 constexpr float sensitivity_values[] = {
     2.0f, 2.5f, 3.0f, 3.5f, 4.0f, 5.0f, 6.5f, 8.0f
@@ -542,22 +546,24 @@ int16_t scale_sample(int16_t sample, int32_t gain_q15) {
     return static_cast<int16_t>(scaled);
 }
 
-// Keeping a second PRA32-U template specialization inside synth_render would
-// place another ~34 KiB of inlined DSP in SRAM. One shared, non-inlined dry
-// entry point retains the two compact engine states while leaving stack room.
-// This flash-resident path requires timing validation on physical hardware.
+// One shared, non-inlined dry entry point avoids duplicating the same template
+// specialization for bass and upper. It must stay in SRAM: running this large
+// per-sample path from XIP flash produces audible cache-miss clicks.
 __attribute__((noinline, noclone))
-int16_t process_dry_engine(PRA32_U_Synth<true> &target) {
+int16_t __not_in_flash_func(process_dry_engine)(PRA32_U_Synth<true> &target) {
     int16_t right = 0;
     return target.process(0, right);
 }
 
 void __not_in_flash_func(core1_entry)() {
     for (;;) {
-        bool processed = middle_engine.secondary_core_process();
-        if (!processed) {
+        if (upper_render_request == 0u) {
             tight_loop_contents();
+            continue;
         }
+        upper_render_result = process_dry_engine(upper_engine);
+        __dmb();
+        upper_render_request = 0u;
     }
 }
 
@@ -1277,8 +1283,14 @@ void __not_in_flash_func(synth_render)(synth_t *synth,
     for (uint32_t frame = 0; frame < frame_count; ++frame) {
         service_ratchets(synth, synth->transport_frame + frame);
         service_note_durations(synth);
+        upper_render_request = 1u;
+        __dmb();
         int16_t bass = process_dry_engine(bass_engine);
-        int16_t upper = process_dry_engine(upper_engine);
+        while (upper_render_request != 0u) {
+            tight_loop_contents();
+        }
+        __dmb();
+        int16_t upper = upper_render_result;
         int32_t dry_sum = static_cast<int32_t>(bass) + upper;
         int16_t dry_input = static_cast<int16_t>(dry_sum / 2);
         int16_t right = 0;

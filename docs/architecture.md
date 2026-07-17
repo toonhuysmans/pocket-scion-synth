@@ -26,13 +26,13 @@ available, it renders and submits 256 stereo frames immediately. Between audio
 buffers it services USB/DIN MIDI, sensor windows, controls, note-off traffic,
 and RGB updates.
 
-The inherited PRA32-U second-core worker is retained, although these forced
-monophonic paths do not dispatch the empty secondary voice calculation or wait
-for it. The full middle engine and lookup tables used in its hot oscillator,
-filter, envelope, LFO, and effects paths reside in SRAM. The two dry parts share
-a flash-resident processing entry point so their compact engine states fit
-alongside the delay line. That XIP path makes physical timing validation
-mandatory for this experimental branch.
+The upper part renders on RP2040 core 1 while core 0 renders bass, then core 0
+adds the middle part and shared effects. Monophonic parts skip low-rate work for
+their three inactive PRA32-U voices. The full middle engine and all lookup
+tables used by oscillator, filter, envelope, LFO, and effects paths reside in
+SRAM. Both dry parts share one non-inlined SRAM processing entry point so code
+is not duplicated and no per-sample DSP executes from XIP flash. The tighter
+remaining SRAM margin makes physical timing and stress validation mandatory.
 
 ## Generative sequencing
 
