@@ -20,6 +20,7 @@
 #define RGB_LED_COUNT 9u
 #define RGB_CENTRE_INDEX 4u
 #define RGB_RING_COUNT 5u
+#define RGB_ACTIVE_PART_COUNT 3u
 #define RGB_FRAME_PERIOD_US 20000u
 #define RGB_OVERLAY_TIME_US 900000u
 
@@ -293,12 +294,14 @@ void status_rgb_service(uint8_t program, bool pitch_bend_enabled, bool raw_mode,
     live_colour = blend_colour(live_colour, transition_colour, transition);
     live_colour = intensify_colour(live_colour);
 
-    // A genuine note onset selects the radial mask from current polyphony.
+    // A genuine note onset selects the radial mask from active lane count.
     // Brightness below comes directly from PRA32-U's live amp envelope, with
     // a restrained contribution from its live, patch-configured LFO.
-    unsigned voice_count = active_voices > 4u ? 4u : active_voices;
-    unsigned highest_ring = voice_count == 0u ? 0u : voice_count - 1u;
-    if (voice_count == 4u) highest_ring = RGB_RING_COUNT - 1u;
+    unsigned voice_count = active_voices > RGB_ACTIVE_PART_COUNT
+        ? RGB_ACTIVE_PART_COUNT : active_voices;
+    unsigned highest_ring = voice_count == 0u ? 0u
+        : ((voice_count - 1u) * (RGB_RING_COUNT - 1u)) /
+          (RGB_ACTIVE_PART_COUNT - 1u);
     if (note_on_counter != last_note_on_counter) {
         last_note_on_counter = note_on_counter;
         latched_highest_ring = (uint8_t)highest_ring;

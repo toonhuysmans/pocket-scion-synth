@@ -88,13 +88,13 @@ USB service, sensor analysis, and UI work out of the per-sample render path.
 Preserve the dual-core PRA32-U arrangement and SRAM placement of hot DSP code
 and lookup tables unless timing is measured again on hardware.
 
-There are four synth voices. Do not reintroduce unconditional voice stealing
-or repeated envelope restarts: repeated pitches tie and extend, and excess
-new triggers are dropped. This behavior prevents low-volume attack churn and
-audible clicking.
+There are three independent monophonic synth parts, one for each sequencer
+lane. A new pitch may replace only the previous note in its own lane. Repeated
+pitches tie and extend without restarting their envelope; this prevents
+low-volume attack churn and cross-lane voice stealing.
 
 Changes to clocks, DMA buffer size, PIO timing, gain, effects, raw capture,
-polyphony, or cross-core memory placement are high-risk and require the full
+part count, or cross-core memory placement are high-risk and require the full
 hardware checklist.
 
 ## Behavioral expectations
@@ -112,7 +112,7 @@ hardware checklist.
 
 When altering controls, test single, double, triple, held, shifted, and paired
 button gestures for conflicts. When altering patches, compare quiet and high
-sensor pressure, all four active voices, ratchets, and effect-heavy scenes.
+sensor pressure, all three active parts, ratchets, and effect-heavy scenes.
 
 ## Clean-room and licensing boundary
 

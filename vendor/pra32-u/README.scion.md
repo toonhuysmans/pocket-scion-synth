@@ -19,3 +19,10 @@ PRA32-U's two signal-processing cores contended for XIP during per-sample
 oscillator and filter lookups. The hot oscillator, filter, envelope, LFO, and
 chorus tables now retain upstream's writable declarations so startup copies
 them into SRAM. Their values are unchanged.
+
+The SCION adapter also parameterizes the synth with an effects-bypass template
+for compact dry parts and exposes read-only envelope/LFO visualization taps.
+On this multitimbral branch, the monophonic process path omits upstream's
+secondary-core request/wait handshake because that branch performs no
+secondary-core DSP work. Polyphonic and paraphonic paths retain the upstream
+two-core behavior.

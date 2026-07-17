@@ -35,7 +35,8 @@ Hold Instrument while pressing:
 ## Live RGB behavior
 
 The normal animation uses one saturated patch colour. The number of active
-voices selects how far it reaches through the five rings. Its brightness is
+parts selects how far it reaches through the five rings: one reaches the
+centre, two the middle radius, and all three the outside. Its brightness is
 read directly from the loudest live PRA32-U amplifier envelope, with subtle
 modulation from the patch's real LFO. White appears only when a ratchet actually
 fires. Raw mode uses a separate white pulse display.

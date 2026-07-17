@@ -5,13 +5,15 @@
 #include "sensor.h"
 
 #define SYNTH_SAMPLE_RATE 48000u
-#define SYNTH_VOICE_COUNT 4u
+#define SYNTH_LANE_COUNT 3u
+#define SYNTH_VOICE_COUNT SYNTH_LANE_COUNT
 #define SYNTH_RATCHET_EVENT_COUNT 12u
 
 typedef struct {
     uint32_t frames_left;
     uint8_t note;
     uint8_t midi_channel;
+    uint8_t lane;
     uint8_t active;
     uint8_t midi_note_off_pending;
 } synth_note_t;
@@ -22,6 +24,7 @@ typedef struct {
     uint8_t note;
     uint8_t velocity;
     uint8_t midi_channel;
+    uint8_t lane;
     uint8_t active;
 } synth_ratchet_event_t;
 

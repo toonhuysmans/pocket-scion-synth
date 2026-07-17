@@ -69,14 +69,14 @@ persistent notes after changing patches.
 - Make fast changes and check for clicks or audio starvation.
 - Exercise all eight sensitivity levels.
 
-Pay special attention to high pressure with three or four simultaneous voices,
+Pay special attention to high pressure with all three simultaneous parts,
 where earlier builds exposed clicking.
 
-## 4. Polyphony and envelopes
+## 4. Parts and envelopes
 
-- Reach one, two, three, and four simultaneous notes and observe the growing
+- Reach one, two, and three simultaneous parts and observe the growing
   LED radius.
-- Confirm existing notes continue when a fifth trigger is requested.
+- Confirm a new note replaces only the previous note in its own lane.
 - Confirm repeated pitches tie and extend rather than repeatedly restarting at
   a quiet attack.
 - Test short Percussive envelopes and long Atmosphere envelopes.
@@ -93,7 +93,7 @@ where earlier builds exposed clicking.
 - Confirm ratchets vary between two and four subdivisions and occur more often
   in Percussive/Extreme than Atmosphere.
 - Confirm white LED flashes occur only when a ratchet actually fires.
-- Listen for clicks at every ratchet intensity and with four active voices.
+- Listen for clicks at every ratchet intensity and with all three parts active.
 
 ## 6. Controls
 
@@ -160,7 +160,7 @@ Test USB MIDI and DIN MIDI independently, then together.
 Run for at least fifteen minutes with:
 
 - high sensor activity;
-- four active voices;
+- all three parts active;
 - pitch bend enabled;
 - an effect-heavy or Extreme patch;
 - DIN and USB MIDI connected;

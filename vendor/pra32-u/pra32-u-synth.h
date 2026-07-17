@@ -1411,11 +1411,6 @@ if constexpr (BYPASS_FX == false) {
 
       voice_mixer_output = amp_output[0];
     } else {
-#if defined(PRA32_U_USE_2_CORES_FOR_SIGNAL_PROCESSING)
-      m_secondary_core_processing_argument = 0;
-      m_secondary_core_processing_request = 1;
-#endif  // defined(PRA32_U_USE_2_CORES_FOR_SIGNAL_PROCESSING)
-
       osc_output[0] = m_osc.process<0>(noise_int15);
       int16_t osc_mixer_output = osc_output[0] << 1;
 
@@ -1423,17 +1418,6 @@ if constexpr (BYPASS_FX == false) {
       amp_output   [0] = m_amp   [0].process(filter_output[0]);
 
       voice_mixer_output = amp_output[0];
-
-#if defined(PRA32_U_USE_2_CORES_FOR_SIGNAL_PROCESSING)
-      // Wait
-      for (volatile uint32_t i = 0; i < 30; ++i) {
-        ;
-      }
-
-      while (m_secondary_core_processing_request) {
-        ;
-      }
-#endif  // defined(PRA32_U_USE_2_CORES_FOR_SIGNAL_PROCESSING)
     }
 
 #if 1

@@ -9,7 +9,8 @@ GPIO0 edges
     → sensor expression and trigger features
     → three Euclidean rhythm lanes
     → scale / motif / ratchet decisions
-    → four-voice PRA32-U synthesizer
+    → three independent monophonic PRA32-U parts
+    → shared chorus and stereo delay
     → gain and limiter
     → PIO0 + chained DMA
     → I2S DAC
@@ -25,9 +26,13 @@ available, it renders and submits 256 stereo frames immediately. Between audio
 buffers it services USB/DIN MIDI, sensor windows, controls, note-off traffic,
 and RGB updates.
 
-PRA32-U divides its four-voice DSP load across both RP2040 cores. Lookup tables
-used in hot oscillator, filter, envelope, LFO, and chorus paths reside in SRAM;
-this avoids cross-core XIP contention that otherwise produces audible clicks.
+The inherited PRA32-U second-core worker is retained, although these forced
+monophonic paths do not dispatch the empty secondary voice calculation or wait
+for it. The full middle engine and lookup tables used in its hot oscillator,
+filter, envelope, LFO, and effects paths reside in SRAM. The two dry parts share
+a flash-resident processing entry point so their compact engine states fit
+alongside the delay line. That XIP path makes physical timing validation
+mandatory for this experimental branch.
 
 ## Generative sequencing
 
@@ -37,19 +42,22 @@ melodic spread, velocity, patch modulation, and ratchet probability. Banks
 provide different musical directions rather than merely changing oscillator
 waveforms.
 
-The allocator does not steal an active voice. If all four slots are occupied,
-a new base trigger is dropped so existing envelopes are not repeatedly reset.
-Repeated pitches become ties and extend duration without restarting their
-envelope. This avoids the low-volume failure mode caused by continuously
-restarting attacks.
+Each lane owns one monophonic part. A new pitch replaces only the previous note
+in that lane, while a repeated pitch becomes a tie and extends duration without
+restarting its envelope. Thus bass activity cannot steal the melody or upper
+part, and attack churn remains isolated to the lane that actually changed.
 
 ## Synthesis
 
-The vendored PRA32-U engine provides two oscillators, sub/noise mixing,
-resonant multimode filters, per-voice envelopes, multiple LFO waveforms,
-portamento, chorus, stereo delay, and modulation routing. The scene builder in
+The vendored PRA32-U core provides two oscillators, sub/noise mixing, resonant
+multimode filters, per-voice envelopes, multiple LFO waveforms, portamento,
+chorus, stereo delay, and modulation routing. Each part uses the synthesis and
+modulation sections. The scene builder in
 [`src/synth.cpp`](../src/synth.cpp) defines 128 patches across eight banks and
-maps the live sensor statistics into patch-appropriate parameter ranges.
+maps live sensor statistics into patch-appropriate parameter ranges. Bass,
+melody, and upper variants then deliberately offset oscillator balance, tuning,
+filter range, envelopes, LFO behavior, and gain. Only the middle part owns the
+chorus and delay; the other two are mixed into that shared stage.
 
 ## MIDI
 

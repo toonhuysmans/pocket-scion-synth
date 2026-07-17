@@ -1,9 +1,15 @@
 # Pocket SCION Synth
 
 An alternative, clean-room firmware for the Instruō Pocket SCION that turns
-the RP2040 hardware into a real-time, sensor-driven polyphonic synthesizer.
+the RP2040 hardware into a real-time, sensor-driven multitimbral synthesizer.
 Instead of selecting prerecorded samples, it generates every sound live with
-oscillators, filters, envelopes, LFOs, chorus, delay, and four-voice polyphony.
+oscillators, filters, envelopes, LFOs, chorus, delay, and three independent
+monophonic parts.
+
+> **Experimental branch:** `multi-timbral` gives the bass, melody, and upper
+> sequencer lanes separate PRA32-U timbres. The compiled v2.3.0 release below
+> remains the hardware-tested single-timbre firmware; build this branch from
+> source until its real-time behavior has been validated on a Pocket SCION.
 
 [![Watch the video](https://img.youtube.com/vi/5qdIYkmIK2Y/maxresdefault.jpg)](https://youtu.be/5qdIYkmIK2Y)
 
@@ -15,7 +21,7 @@ respective owner.
 
 - 128 deliberately designed patches across eight banks
 - Three sensor-modulated Euclidean rhythm lanes
-- Four-voice PRA32-U synthesis at 48 kHz stereo
+- Three-part multitimbral PRA32-U synthesis at 48 kHz stereo
 - Sensor control of notes, expression, timbre, rhythm, ratchets, and pitch bend
 - DIN MIDI and class-compliant USB MIDI output
 - Single-channel and three-channel MIDI modes
@@ -62,9 +68,10 @@ is linked rather than redistributed by this project.
 GPIO0 supplies edge timestamps from the biofeedback oscillator. Ten accepted
 intervals form one analysis window. Range, variance, standard deviation,
 proximity, and trigger statistics continuously reshape a generative sequencer.
-Three Euclidean lanes choose notes from a scale and feed a four-voice
-[PRA32-U](https://github.com/risgk/digital-synth-pra32-u) engine. The output is
-sent to the onboard DAC through an exact-rate PIO/DMA I2S pipeline.
+Three Euclidean lanes choose notes from a scale and feed independent bass,
+melody, and upper [PRA32-U](https://github.com/risgk/digital-synth-pra32-u)
+parts. The dry outer parts enter the melody part's shared chorus/delay stage,
+then reach the onboard DAC through an exact-rate PIO/DMA I2S pipeline.
 
 The firmware retains the useful physical interface—buttons, MIDI, raw mode,
 and the five-ring RGB artwork—but gives it a new synthesis and sequencing
@@ -91,6 +98,7 @@ See [docs/controls.md](docs/controls.md) for display feedback and MIDI details.
 
 - [Platform and peripherals](docs/platform.md)
 - [Firmware architecture](docs/architecture.md)
+- [Multitimbral branch design](docs/multitimbral.md)
 - [Banks, scenes, and parameters](docs/banks-and-parameters.md)
 - [Controls, modes, and MIDI](docs/controls.md)
 - [Clean-room reverse engineering](docs/reverse-engineering.md)

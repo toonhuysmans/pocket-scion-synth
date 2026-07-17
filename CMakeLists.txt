@@ -34,7 +34,7 @@ add_executable(pocket_scion_synth
 
 pico_set_program_name(pocket_scion_synth "Pocket SCION PRA32-U")
 pico_set_program_version(pocket_scion_synth "2.3.0")
-pico_set_program_description(pocket_scion_synth "Sensor-driven four-voice PRA32-U synthesizer")
+pico_set_program_description(pocket_scion_synth "Sensor-driven three-part PRA32-U synthesizer")
 pico_set_program_url(pocket_scion_synth "https://github.com/toonhuysmans/pocket-scion-synth")
 
 pico_generate_pio_header(pocket_scion_synth

@@ -132,8 +132,15 @@ their transient contours from remaining uniformly short.
 Base lane gates are 2.20 steps for bass, 1.45 for melody, and 0.90 for the
 upper voice before duration and bank scaling. Percussive uses ×0.62, Bass &
 Lead ×1.15, Atmosphere ×1.85, Extreme ×0.78, and other banks ×1. Notes are
-four-voice polyphonic; repeated pitches tie instead of restarting their
-envelopes, and new triggers are dropped rather than stealing an active voice.
+played by three independent monophonic parts. Repeated pitches tie instead of
+restarting their envelopes; a new pitch replaces only the note in its own lane.
+
+Every base scene receives a deliberate lane transform. Bass adds sub weight,
+lowers oscillator 2, darkens the filter, and moves more slowly. Melody retains
+the authored scene most closely and owns the shared chorus/delay. Upper reduces
+sub content, raises oscillator 2, brightens key tracking/filtering, and uses
+faster LFO and envelope values. Sensor modulation reaches all three parts with
+reduced depth on bass and expanded depth on upper.
 
 Ratchet probability combines expression (48%), proximity (20%), spread (22%),
 and sensitivity, followed by the bank multiplier. A successful ratchet divides
