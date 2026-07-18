@@ -109,6 +109,8 @@ reverted, restored to compiled defaults, and exchanged as readable patch or
 bank JSON. [Open the hosted editor](https://toonhuysmans.github.io/pocket-scion-synth/)
 or see the [editor guide](docs/editor.md).
 
+[![Alternative Synth Firmware Editor showing scale and motif controls](docs/images/alternative-synth-firmware-editor.png)](https://toonhuysmans.github.io/pocket-scion-synth/)
+
 ## Documentation
 
 - [Platform and peripherals](docs/platform.md)
