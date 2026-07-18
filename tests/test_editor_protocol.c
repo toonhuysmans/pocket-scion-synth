@@ -106,6 +106,15 @@ int main(void) {
     assert_response(0x40u, 9u);
     assert(set_value == 240u);
 
+    response_length = 0u;
+    send_request(0x08u, 10u, NULL, 0u);
+    assert_response(0x43u, 10u);
+    assert(response_length == 17u);
+    for (unsigned parameter = 0u; parameter < 4u; ++parameter) {
+        assert(response[7u + parameter * 2u] == (1000u & 0x7fu));
+        assert(response[8u + parameter * 2u] == (1000u >> 7u));
+    }
+
     uint8_t corrupt[] = {0xf0u, 0x7du, 0x50u, 0x53u, 1u, 1u, 10u, 1u, 0xf7u};
     response_length = 0u;
     for (unsigned index = 0u; index < sizeof(corrupt); ++index) {

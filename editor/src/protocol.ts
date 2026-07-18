@@ -1,9 +1,9 @@
 export const Scope = { Patch: 0, Bank: 1, Global: 2, Sensor: 3 } as const;
 export const Command = {
   Hello: 0x01, Select: 0x02, Get: 0x03, Set: 0x04,
-  Commit: 0x05, Revert: 0x06, Restore: 0x07,
+  Commit: 0x05, Revert: 0x06, Restore: 0x07, SensorSnapshot: 0x08,
 } as const;
-const Response = { Ack: 0x40, Capabilities: 0x41, Value: 0x42, Nack: 0x7f };
+const Response = { Ack: 0x40, Capabilities: 0x41, Value: 0x42, SensorSnapshot: 0x43, Nack: 0x7f };
 const SIGNATURE = [0x7d, 0x50, 0x53, 0x01];
 
 interface MidiMessageEventLike { data: Uint8Array }
@@ -102,6 +102,16 @@ export class PocketScionConnection extends EventTarget {
     const operation = this.chain.then(() => this.sendRequest(command, payload, timeout));
     this.chain = operation.catch(() => undefined);
     return operation;
+  }
+
+  async sensorSnapshot(): Promise<number[]> {
+    const response = await this.request(Command.SensorSnapshot, []);
+    if (response[0] !== Response.SensorSnapshot || response.length !== 10) {
+      throw new Error("Unexpected sensor snapshot response.");
+    }
+    const payload = response.slice(2);
+    return Array.from({ length: 4 }, (_, index) =>
+      payload[index * 2] | (payload[index * 2 + 1] << 7));
   }
 
   private sendRequest(command: number, payload: number[], timeout: number): Promise<number[]> {

@@ -327,6 +327,11 @@ These are normalized performance features, not raw electrical voltages. A
 plant often changes more slowly than direct pad touch; use lower modulation
 depths first and increase them after observing the monitor.
 
+Current firmware returns all four readings in one coherent USB SysEx snapshot.
+The editor waits for each response before scheduling the next and refreshes at
+about 20 Hz, avoiding overlapping requests. With older firmware it falls back
+to four serialized reads at approximately the original slower rate.
+
 ## USB MIDI chord constraint
 
 Up to seven distinct held USB MIDI pitch classes can temporarily constrain all

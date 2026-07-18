@@ -35,6 +35,29 @@ Each bank also deliberately separates the three timbral roles:
 | Spectral | Resonant body, metal strike, noise click, or hollow ring | Glass/high-pass pad | Glass/noise lead |
 | Extreme | Per-hit randomized sub/noise impacts | Animated gated cloud | Unstable sample-and-hold lead |
 
+### Percussive bank profiles
+
+The Percussive bank is deliberately varied rather than uniformly short and
+dense. Patch 8 retains the balanced reference groove. Patches 4, 10, and 16
+are the three intentional click/micro/glitch extremes; the remaining patches
+use lower lane densities, fewer ratchets, and longer synth and articulation
+decays.
+
+| Patches | Direction |
+|---|---|
+| 1–3 | Grounded groove, tom circle, and spaced backbeat |
+| 4 | Dense click extreme |
+| 5–7 | Heavy impacts, tribal movement, and broken beat |
+| 8 | Original balanced reference |
+| 9 | Sparse dub-like impacts with the longest tails |
+| 10 | Micro-ratchet extreme |
+| 11–15 | Syncopated, loose, metallic, rolling, and driven kits |
+| 16 | Maximum glitch extreme |
+
+These directions are stored as ordinary patch gates, lane densities, lane
+ratchet responses, amplifier envelopes, and articulation decay/ratchet values.
+They can be edited or replaced without any runtime patch-number branch.
+
 The low lane is configurable independently of bank identity. Every patch can
 inherit its bank default or force **Bass**, **Percussion**, or **Hybrid**.
 Hybrid alternates bass and percussion events because both use the same low

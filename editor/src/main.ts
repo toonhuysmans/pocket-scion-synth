@@ -14,6 +14,7 @@ let state: EditorState = { lanes: [[], [], []], shared: [], bank: [], globals: [
 let activeTab: Tab = "bass";
 let dirty = new Set<"patch" | "bank" | "globals">();
 let sensorTimer: number | undefined;
+let sensorSnapshotSupported: boolean | undefined;
 let loadGeneration = 0;
 const sendTimers = new Map<string, number>();
 let parameterOutputRefreshers: (() => void)[] = [];
@@ -239,6 +240,43 @@ function renderParameters(parameters: Parameter[], values: number[], scope: "pat
   }
 }
 
+function updateSensorMeters(values: number[]): void {
+  values.forEach((value, id) => {
+    const meter = editor.querySelector<HTMLElement>(`[data-sensor="${id}"]`);
+    if (!meter) return;
+    const percent = Math.round(value / 10);
+    meter.querySelector("output")!.textContent = `${percent}%`;
+    (meter.querySelector(".meter-fill") as HTMLElement).style.width = `${percent}%`;
+  });
+}
+
+async function pollSensor(): Promise<void> {
+  if (activeTab !== "sensor") return;
+  try {
+    let values: number[] | undefined;
+    if (sensorSnapshotSupported !== false) {
+      try {
+        values = await connection.sensorSnapshot();
+        sensorSnapshotSupported = true;
+      } catch {
+        sensorSnapshotSupported = false;
+      }
+    }
+    if (!values) {
+      values = [];
+      for (let id = 0; id < 4; id++) values.push(await requestValue(Scope.Sensor, 0, 0, id));
+    }
+    updateSensorMeters(values);
+  } catch {
+    // A disconnected device leaves the last coherent snapshot visible.
+  } finally {
+    if (activeTab === "sensor") {
+      sensorTimer = window.setTimeout(pollSensor,
+        sensorSnapshotSupported === true ? 50 : 200);
+    }
+  }
+}
+
 function renderSensor(): void {
   editor.classList.remove("empty"); editor.replaceChildren();
   const grid = document.createElement("div"); grid.className = "sensor-grid";
@@ -247,22 +285,11 @@ function renderSensor(): void {
     meter.innerHTML = `<h2>${name}</h2><output>0%</output><div class="meter-track"><div class="meter-fill"></div></div>`; grid.append(meter);
   });
   editor.append(grid);
-  sensorTimer = window.setInterval(async () => {
-    if (activeTab !== "sensor") return;
-    for (let id = 0; id < 4; id++) {
-      try {
-        const value = await requestValue(Scope.Sensor, 0, 0, id);
-        const meter = editor.querySelector<HTMLElement>(`[data-sensor="${id}"]`);
-        if (!meter) continue;
-        const percent = Math.round(value / 10); meter.querySelector("output")!.textContent = `${percent}%`;
-        (meter.querySelector(".meter-fill") as HTMLElement).style.width = `${percent}%`;
-      } catch { break; }
-    }
-  }, 240);
+  void pollSensor();
 }
 
 function render(): void {
-  if (sensorTimer) { window.clearInterval(sensorTimer); sensorTimer = undefined; }
+  if (sensorTimer) { window.clearTimeout(sensorTimer); sensorTimer = undefined; }
   if (!capabilities) return;
   if (activeTab === "bass" || activeTab === "pad" || activeTab === "lead") {
     const lane = { bass: 0, pad: 1, lead: 2 }[activeTab];
@@ -292,6 +319,7 @@ async function run(action: () => Promise<void>, pending: string): Promise<void> 
 
 $("#connect").addEventListener("click", () => run(async () => {
   capabilities = await connection.connect();
+  sensorSnapshotSupported = undefined;
   $("#connection-light").classList.add("on"); $("#connection-label").textContent = `Pocket SCION ${capabilities.firmware}`;
   await loadCurrent();
 }, "Requesting USB MIDI and SysEx access…"));

@@ -1045,7 +1045,62 @@ void build_default_articulation(uint8_t bank, uint8_t program,
     }
 }
 
+struct percussive_profile_t {
+    int8_t density[3];
+    uint8_t gate_q5[3];
+    uint8_t ratchet_percent[3];
+    int8_t envelope_shift;
+    int8_t articulation_decay_shift;
+    uint8_t articulation_ratchet_percent;
+};
+
+void apply_percussive_profile(uint8_t program, patch_record_t *record) {
+    // Most of the bank leaves room around full-bodied impacts. Programs 4,
+    // 10 and 16 deliberately retain the dense click/micro/glitch extremes;
+    // program 8 is the unchanged reference balance that inspired this pass.
+    static constexpr percussive_profile_t profiles[16] = {
+        {{-3, -4, -4}, { 90, 64, 48}, { 30,  45,  52},  22,  18,  68},
+        {{-2, -3, -4}, { 96, 70, 46}, { 35,  50,  58},  18,  20,  72},
+        {{-3, -3, -5}, { 88, 62, 42}, { 28,  45,  54},  16,  14,  70},
+        {{ 1,  2,  2}, { 52, 34, 20}, { 80, 135, 150}, -10, -12, 125},
+        {{-4, -5, -6}, {110, 80, 54}, { 18,  35,  42},  28,  24,  55},
+        {{-2, -4, -5}, {100, 72, 48}, { 30,  48,  56},  20,  18,  68},
+        {{-3, -2, -4}, { 82, 60, 38}, { 36,  62,  68},  14,  12,  78},
+        {{ 0,  0,  0}, { 70, 46, 29}, { 52,  92, 100},   0,   0, 100},
+        {{-5, -6, -6}, {120, 96, 70}, { 15,  28,  35},  34,  30,  48},
+        {{ 2,  2,  3}, { 46, 28, 16}, { 90, 150, 170}, -14, -16, 140},
+        {{-2, -3, -4}, { 90, 68, 44}, { 32,  55,  66},  18,  16,  74},
+        {{-3, -4, -3}, {104, 78, 58}, { 24,  40,  50},  24,  22,  62},
+        {{-5, -5, -4}, {112, 82, 52}, { 18,  38,  60},  22,  18,  66},
+        {{-2, -3, -4}, { 92, 64, 42}, { 42,  72,  82},  14,  12,  82},
+        {{-1, -2, -3}, { 78, 54, 34}, { 48,  80,  92},  10,   8,  90},
+        {{ 2,  3,  3}, { 40, 24, 14}, {110, 175, 190}, -16, -18, 155},
+    };
+    const percussive_profile_t &profile = profiles[program];
+    record->density_bias = profile.density[0];
+    record->density_bias_pad = profile.density[1];
+    record->density_bias_lead = profile.density[2];
+    for (uint8_t lane = 0u; lane < SYNTH_LANE_COUNT; ++lane) {
+        record->gate_q5[lane] = profile.gate_q5[lane];
+        record->ratchet_percent[lane] = profile.ratchet_percent[lane];
+        scene_t &scene = record->lane[lane];
+        scene.amp_decay = adjust_u7(scene.amp_decay,
+                                    profile.envelope_shift);
+        scene.amp_sustain = adjust_u7(scene.amp_sustain,
+                                      profile.envelope_shift / 3);
+        scene.amp_release = adjust_u7(scene.amp_release,
+                                      profile.envelope_shift);
+    }
+    for (articulation_slot_t &slot : record->articulation) {
+        slot.decay = adjust_u7(slot.decay,
+                               profile.articulation_decay_shift);
+        slot.ratchet = clamp_u7(static_cast<int>(slot.ratchet) *
+            profile.articulation_ratchet_percent / 100);
+    }
+}
+
 void build_default_patch(uint8_t id, patch_record_t *record) {
+    const uint8_t bank = id / scene_count;
     const uint8_t program = id % scene_count;
     for (uint8_t lane = 0u; lane < 3u; ++lane) {
         record->lane[lane] = make_generated_lane_scene(id, lane);
@@ -1067,6 +1122,7 @@ void build_default_patch(uint8_t id, patch_record_t *record) {
                                program, record);
     record->density_bias_pad = 0;
     record->density_bias_lead = 0;
+    if (bank == 3u) apply_percussive_profile(program, record);
     build_default_patch_behavior(id, record, true);
 }
 

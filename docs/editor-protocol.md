@@ -35,9 +35,13 @@ timeout and allow up to 6 seconds for flash commands.
 | `05` | Commit | scope, target | `40` ACK |
 | `06` | Revert | scope, target | `40` ACK |
 | `07` | Restore compiled default | scope, target | `40` ACK |
+| `08` | Sensor snapshot | none | `43` four-value snapshot |
 
 `ACK`/`NACK` payloads contain the original command and status/error code.
 `VALUE` echoes scope, target, lane, and parameter followed by the 14-bit value.
+`SENSOR SNAPSHOT` contains pressure, expression, transient, and bipolar pitch
+motion as four consecutive 14-bit values, low seven bits first. One coherent
+packet replaces four separately queued `GET` requests.
 
 Capabilities payload is firmware major, minor, patch; patch count LSB/MSB;
 bank count; scene-parameter count; shared-patch count; bank-parameter count;
@@ -72,6 +76,12 @@ Scopes are patch `0`, bank `1`, global `2`, and read-only live sensor `3`.
   brightness.
 - Sensor parameters 0–3 are pressure, expression, transient, and bipolar pitch
   motion mapped to 0–1000.
+
+Editors should prefer command `08` while the sensor monitor is visible. A
+bounded request/response loop around 20 Hz is fast enough for fluid meters and
+keeps sensor UI traffic far below audio and MIDI event bandwidth. For older
+firmware that rejects command `08`, fall back to the four individual sensor
+`GET` requests at a slower rate.
 
 Ordinary incoming Note, CC, Program Change, and pitch-bend messages remain
 ignored. This prevents a DAW or controller from accidentally altering the

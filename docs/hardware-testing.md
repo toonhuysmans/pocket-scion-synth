@@ -80,6 +80,9 @@ where earlier builds exposed clicking.
 - Confirm repeated pitches tie and extend rather than repeatedly restarting at
   a quiet attack.
 - Test short Percussive envelopes and long Atmosphere envelopes.
+- Sweep all sixteen Percussive patches: 8 should retain its balanced reference
+  feel; 4, 10, and 16 should be the only deliberately dense click/glitch
+  extremes, while the other thirteen retain audible body and rhythmic space.
 - In every bank, audition Bass, Percussion, Hybrid, and Inherit low-lane modes.
 - Set each articulation slot to kick, tom, snare, closed/open hat, clap,
   rim/wood, and shaker/metal in turn. Verify zero weight disables it and role,

@@ -21,9 +21,11 @@ enum {
     COMMAND_COMMIT = 0x05,
     COMMAND_REVERT = 0x06,
     COMMAND_RESTORE = 0x07,
+    COMMAND_SENSOR_SNAPSHOT = 0x08,
     RESPONSE_ACK = 0x40,
     RESPONSE_CAPABILITIES = 0x41,
     RESPONSE_VALUE = 0x42,
+    RESPONSE_SENSOR_SNAPSHOT = 0x43,
     RESPONSE_NACK = 0x7f,
 };
 
@@ -119,6 +121,22 @@ static void process_message(void) {
         ok = synth_editor_revert(controlled_synth, payload[0], payload[1]);
     } else if (command == COMMAND_RESTORE && payload_length == 2u) {
         ok = synth_editor_restore(controlled_synth, payload[0], payload[1]);
+    } else if (command == COMMAND_SENSOR_SNAPSHOT && payload_length == 0u) {
+        uint8_t response[8];
+        for (uint8_t parameter = 0u; parameter < 4u; ++parameter) {
+            uint16_t value = 0u;
+            if (!synth_editor_get(controlled_synth,
+                                  SYNTH_EDITOR_SCOPE_SENSOR, 0u, 0u,
+                                  parameter, &value)) {
+                send_nack(request, command, 2u);
+                return;
+            }
+            response[parameter * 2u] = (uint8_t)(value & 0x7fu);
+            response[parameter * 2u + 1u] = (uint8_t)((value >> 7u) & 0x7fu);
+        }
+        send_response(RESPONSE_SENSOR_SNAPSHOT, request, response,
+                      sizeof(response));
+        return;
     } else {
         send_nack(request, command, 1u);
         return;
