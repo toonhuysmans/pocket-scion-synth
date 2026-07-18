@@ -107,7 +107,8 @@ snapshots together with sequence, sensor-routing, rhythm, MIDI, and global
 settings. It runs in desktop Chrome or Edge through Web MIDI SysEx. Changes can
 be auditioned live, explicitly saved into any of the 128 flash-backed slots,
 reverted, restored to compiled defaults, and exchanged as readable patch or
-bank JSON. See the [editor guide](docs/editor.md).
+bank JSON. [Open the hosted editor](https://toonhuysmans.github.io/pocket-scion-synth/)
+or see the [editor guide](docs/editor.md).
 
 ## Documentation
 
