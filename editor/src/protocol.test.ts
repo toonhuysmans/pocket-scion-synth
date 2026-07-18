@@ -34,13 +34,15 @@ describe("Pocket SCION SysEx codec", () => {
 describe("editor schema", () => {
   it("matches the firmware capability counts", () => {
     expect(sceneParameters).toHaveLength(47);
-    expect(patchSharedParameters).toHaveLength(99);
+    expect(patchSharedParameters).toHaveLength(101);
     expect(bankParameters).toHaveLength(19);
     expect(globalParameters).toHaveLength(7);
     expect(sceneParameters[18].values?.map(choice => choice.value)).toEqual([2, 4, 5]);
     expect(patchSharedParameters[35].values?.map(choice => choice.value)).toEqual([0, 1, 2, 3]);
     expect(patchSharedParameters[39].values).toHaveLength(8);
     expect(patchSharedParameters[40].values).toHaveLength(5);
+    expect(patchSharedParameters[99].name).toBe("Pad density");
+    expect(patchSharedParameters[100].name).toBe("Lead density");
   });
 
   it("renders standard MIDI note names and octaves", () => {

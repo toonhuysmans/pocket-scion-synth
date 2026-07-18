@@ -1,6 +1,7 @@
 #include "synth.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -224,6 +225,8 @@ struct patch_record_t {
     uint8_t low_sensor;
     uint8_t low_variation;
     articulation_slot_t articulation[6];
+    int8_t density_bias_pad;
+    int8_t density_bias_lead;
 };
 
 struct bank_record_t {
@@ -257,8 +260,8 @@ struct global_record_t {
     uint8_t reserved;
 };
 
-static_assert(sizeof(patch_record_t) <= 236u,
-              "Patch record must fit one flash page");
+static_assert(sizeof(patch_record_t) == 236u,
+              "Patch record must fill but not exceed one flash payload");
 
 patch_record_t active_patch;
 bank_record_t active_bank;
@@ -951,6 +954,24 @@ void build_default_patch(uint8_t id, patch_record_t *record) {
     record->ratchet_percent[2] = 100u;
     build_default_articulation(static_cast<uint8_t>(id / scene_count),
                                program, record);
+    record->density_bias_pad = 0;
+    record->density_bias_lead = 0;
+}
+
+bool load_patch_override(uint8_t id, patch_record_t *record) {
+    size_t stored_size = 0u;
+    if (!preset_store_load_prefix(id, record, sizeof(*record), &stored_size)) {
+        return false;
+    }
+    // Records written before independent lane density used one shared value.
+    // Copy it into newly appended fields so their musical balance is retained.
+    if (stored_size <= offsetof(patch_record_t, density_bias_pad)) {
+        record->density_bias_pad = record->density_bias;
+    }
+    if (stored_size <= offsetof(patch_record_t, density_bias_lead)) {
+        record->density_bias_lead = record->density_bias;
+    }
+    return true;
 }
 
 void normalize_patch_voice_modes(patch_record_t *record) {
@@ -969,8 +990,7 @@ void normalize_patch_voice_modes(patch_record_t *record) {
 
 void load_active_patch(uint8_t id) {
     build_default_patch(id, &active_patch);
-    (void)preset_store_load_prefix(id, &active_patch, sizeof(active_patch),
-                                   NULL);
+    (void)load_patch_override(id, &active_patch);
     normalize_patch_voice_modes(&active_patch);
     active_patch_id = id;
     active_patch_dirty = false;
@@ -2267,12 +2287,17 @@ static void process_sensor_state(synth_t *synth, const sensor_stats_t *stats,
                 mode, static_cast<uint8_t>(lane));
         }
         int density = static_cast<int>(synth->sensitivity_index) / 2 +
-                      route.density_offset + active_patch.density_bias;
-        int bass_pulses = 3 + density + static_cast<int>(
+                      route.density_offset;
+        const int lane_density[3] = {
+            density + active_patch.density_bias,
+            density + active_patch.density_bias_pad,
+            density + active_patch.density_bias_lead,
+        };
+        int bass_pulses = 3 + lane_density[0] + static_cast<int>(
             synth->sensor_proximity * 3.0f + synth->sensor_transient * 2.0f);
-        int melody_pulses = 2 + density + static_cast<int>(
+        int melody_pulses = 2 + lane_density[1] + static_cast<int>(
             synth->sensor_expression * 3.0f + synth->sensor_proximity * 2.0f);
-        int upper_pulses = 1 + density + static_cast<int>(
+        int upper_pulses = 1 + lane_density[2] + static_cast<int>(
             synth->sensor_expression * 2.0f + synth->sensor_proximity * 1.5f +
             synth->sensor_transient * 2.0f);
         if (stats->trigger || synth->sensor_transient > 0.55f) ++melody_pulses;
@@ -2547,8 +2572,7 @@ static bool editor_get_patch(uint8_t target, uint8_t lane, uint8_t parameter,
     const patch_record_t *record = &active_patch;
     if (target != active_patch_id) {
         build_default_patch(target, &temporary);
-        (void)preset_store_load_prefix(target, &temporary, sizeof(temporary),
-                                       NULL);
+        (void)load_patch_override(target, &temporary);
         normalize_patch_voice_modes(&temporary);
         record = &temporary;
     }
@@ -2583,6 +2607,14 @@ static bool editor_get_patch(uint8_t target, uint8_t lane, uint8_t parameter,
     } else if (parameter == 38u) {
         *value = record->low_variation;
     } else if (parameter < SYNTH_EDITOR_PATCH_SHARED_COUNT) {
+        if (parameter == 99u) {
+            *value = static_cast<uint16_t>(record->density_bias_pad + 16);
+            return true;
+        }
+        if (parameter == 100u) {
+            *value = static_cast<uint16_t>(record->density_bias_lead + 16);
+            return true;
+        }
         const uint8_t relative = static_cast<uint8_t>(parameter - 39u);
         const articulation_slot_t &slot = record->articulation[relative / 10u];
         switch (relative % 10u) {
@@ -2740,7 +2772,11 @@ bool synth_editor_set(synth_t *synth, uint8_t scope, uint8_t target,
                                      &active_patch.low_sensor,
                                      &active_patch.low_variation};
                 *fields[parameter - 36u] = static_cast<uint8_t>(value);
-            } else if (parameter < SYNTH_EDITOR_PATCH_SHARED_COUNT) {
+            } else if (parameter == 99u && value >= 8u && value <= 24u) {
+                active_patch.density_bias_pad = static_cast<int8_t>(value) - 16;
+            } else if (parameter == 100u && value >= 8u && value <= 24u) {
+                active_patch.density_bias_lead = static_cast<int8_t>(value) - 16;
+            } else if (parameter >= 39u && parameter < 99u) {
                 const uint8_t relative = static_cast<uint8_t>(parameter - 39u);
                 articulation_slot_t &slot =
                     active_patch.articulation[relative / 10u];

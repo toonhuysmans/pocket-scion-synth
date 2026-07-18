@@ -236,7 +236,7 @@ constraint.
 | Tempo | Patch BPM before the bank Tempo multiplier. |
 | Swing | Long/short sixteenth-note ratio; 50/50 is straight. |
 | Bass/Pad/Lead steps | Euclidean cycle length for each lane, 1–16. |
-| Density bias | Adds or removes requested pulses after sensor/bank density. |
+| Bass/Pad/Lead density | Independently adds or removes requested pulses after sensor/bank density. |
 | Bass/Pad/Lead gate | Base duration in sequencer steps. |
 | Bass/Pad/Lead ratchets | Lane response to the shared live ratchet drive. |
 
@@ -335,8 +335,8 @@ become persistent. Bank import asks for confirmation, writes all sixteen target
 slots, and commits the bank settings because only one unsaved patch can occupy
 device RAM.
 
-New exports use JSON version 2. Version 1 files remain importable; new fields
-retain compiled defaults. Scale offsets use `semitones + 24`, density uses
+New exports use JSON version 3. Version 1 and 2 files remain importable; new
+fields retain compiled or migrated defaults. Scale offsets use `semitones + 24`, density uses
 `offset + 16`, and all other values follow the ranges visible in the editor.
 Unknown schemas, invalid values, and incorrect array sizes are rejected before
 transmission.

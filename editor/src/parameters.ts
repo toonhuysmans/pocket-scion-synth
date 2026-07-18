@@ -63,7 +63,7 @@ export const patchSharedParameters: Parameter[] = [
   ...["Bass steps", "Pad steps", "Lead steps"].map((name, index) => ({ id: index + 24, name, section: "Euclidean rhythm", min: 1, max: 16 })),
   { id: 27, name: "Swing", section: "Clock", min: 50, max: 75, display: (v: number) => `${v}/${100 - v}` },
   ...["Bass gate", "Pad gate", "Lead gate"].map((name, index) => ({ id: index + 28, name, section: "Gates", min: 8, max: 128, display: (v: number) => `${(v / 32).toFixed(2)} steps` })),
-  { id: 31, name: "Density bias", section: "Euclidean rhythm", min: 8, max: 24, display: (v: number) => `${v - 16}` },
+  { id: 31, name: "Bass density", section: "Euclidean rhythm", min: 8, max: 24, display: (v: number) => `${v - 16}` },
   ...["Bass ratchets", "Pad ratchets", "Lead ratchets"].map((name, index) => ({ id: index + 32, name, section: "Ratchets", min: 0, max: 200, display: (v: number) => `${v}%` })),
   { id: 35, name: "Low-lane mode", section: "Low role", min: 0, max: 3, values: [
     { value: 0, label: "Inherit bank" }, { value: 1, label: "Bass" },
@@ -92,6 +92,8 @@ export const patchSharedParameters: Parameter[] = [
       { id: start + 9, name: "Ratchet response", section, min: 0, max: 127 },
     ];
   }).flat(),
+  { id: 99, name: "Pad density", section: "Euclidean rhythm", min: 8, max: 24, display: (v: number) => `${v - 16}` },
+  { id: 100, name: "Lead density", section: "Euclidean rhythm", min: 8, max: 24, display: (v: number) => `${v - 16}` },
 ];
 
 export const bankParameters: Parameter[] = [

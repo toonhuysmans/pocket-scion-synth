@@ -198,6 +198,12 @@ played by three independent monophonic parts: bass/percussion, pad, and lead.
 Repeated pitches tie within their lane; a new pitch replaces only the note in
 that same role.
 
+Each patch has independent Bass, Pad, and Lead density biases from −8 to +8.
+They offset the sensor- and bank-derived pulse request before it is clamped to
+the lane's Euclidean length. Step length therefore sets the cycle geometry,
+while the three density controls establish the relative activity of the lanes.
+Exact hit counts and rotation remain generative.
+
 Every base scene receives deliberate role transforms. Low emphasizes sub,
 darker filtering, percussion and noise; pad emphasizes harmonic sustain and
 owns chorus/delay; lead emphasizes brightness, speed, and expressive motion.

@@ -5,8 +5,8 @@ import { sceneParameters, patchSharedParameters, bankParameters, globalParameter
 type Tab = "bass" | "pad" | "lead" | "sequence" | "articulation" | "bank" | "globals" | "sensor";
 interface PatchData { lanes: number[][]; shared: number[] }
 interface EditorState extends PatchData { bank: number[]; globals: number[] }
-interface PatchFile extends PatchData { schema: "pocket-scion-patch"; version: 1 | 2; patchId: number }
-interface BankFile { schema: "pocket-scion-bank"; version: 1 | 2; bankIndex: number; settings: number[]; patches: PatchFile[] }
+interface PatchFile extends PatchData { schema: "pocket-scion-patch"; version: 1 | 2 | 3; patchId: number }
+interface BankFile { schema: "pocket-scion-bank"; version: 1 | 2 | 3; bankIndex: number; settings: number[]; patches: PatchFile[] }
 
 const connection = new PocketScionConnection();
 let capabilities: Capabilities | undefined;
@@ -317,12 +317,12 @@ function download(name: string, data: unknown): void {
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
   const anchor = document.createElement("a"); anchor.href = url; anchor.download = name; anchor.click(); URL.revokeObjectURL(url);
 }
-function patchFile(id: number, data: PatchData): PatchFile { return { schema: "pocket-scion-patch", version: 2, patchId: id, ...data }; }
+function patchFile(id: number, data: PatchData): PatchFile { return { schema: "pocket-scion-patch", version: 3, patchId: id, ...data }; }
 $("#export-patch").addEventListener("click", () => download(`pocket-scion-patch-${patchId() + 1}.json`, patchFile(patchId(), state)));
 $("#export-bank").addEventListener("click", () => run(async () => {
   const bankIndex = Number(bankSelect.value); const patches: PatchFile[] = [];
   for (let program = 0; program < 16; program++) { setStatus(`Reading bank: patch ${program + 1} of 16…`); const id = bankIndex * 16 + program; patches.push(patchFile(id, await readPatch(id))); }
-  download(`pocket-scion-bank-${bankIndex + 1}.json`, { schema: "pocket-scion-bank", version: 2, bankIndex, settings: state.bank, patches } satisfies BankFile);
+  download(`pocket-scion-bank-${bankIndex + 1}.json`, { schema: "pocket-scion-bank", version: 3, bankIndex, settings: state.bank, patches } satisfies BankFile);
   setStatus("Bank JSON exported.");
 }, "Reading bank…"));
 
@@ -334,8 +334,9 @@ function validPatch(value: unknown): value is PatchFile {
       ? parameter.values.some(choice => choice.value === item)
       : item >= parameter.min && item <= parameter.max);
   });
-  const sharedParameters = p?.version === 1 ? patchSharedParameters.slice(0, 35) : patchSharedParameters;
-  return p?.schema === "pocket-scion-patch" && (p.version === 1 || p.version === 2) && Number.isInteger(p.patchId) && p.patchId >= 0 && p.patchId < 128 && p.lanes?.length === 3 && p.lanes.every(lane => valid(lane, sceneParameters)) && valid(p.shared, sharedParameters);
+  const sharedParameters = p?.version === 1 ? patchSharedParameters.slice(0, 35)
+    : p?.version === 2 ? patchSharedParameters.slice(0, 99) : patchSharedParameters;
+  return p?.schema === "pocket-scion-patch" && (p.version === 1 || p.version === 2 || p.version === 3) && Number.isInteger(p.patchId) && p.patchId >= 0 && p.patchId < 128 && p.lanes?.length === 3 && p.lanes.every(lane => valid(lane, sceneParameters)) && valid(p.shared, sharedParameters);
 }
 async function transmitPatch(file: PatchFile, target: number): Promise<void> {
   for (let lane = 0; lane < 3; lane++) for (let parameter = 0; parameter < 47; parameter++) await connection.request(Command.Set, [Scope.Patch, target, lane, parameter, ...valueBytes(file.lanes[lane][parameter])]);
@@ -350,7 +351,7 @@ $("#file").addEventListener("change", () => run(async () => {
     const bank = data as BankFile;
     const settingsLength = bank?.version === 1 ? 17 : bankParameters.length;
     const validSettings = bank?.settings?.length === settingsLength && bank.settings.every((value, index) => Number.isInteger(value) && value >= bankParameters[index].min && value <= bankParameters[index].max);
-    if (bank?.schema !== "pocket-scion-bank" || (bank.version !== 1 && bank.version !== 2) || bank.patches?.length !== 16 || !bank.patches.every(validPatch) || !validSettings) throw new Error("This is not a compatible Pocket SCION patch or bank file.");
+    if (bank?.schema !== "pocket-scion-bank" || (bank.version !== 1 && bank.version !== 2 && bank.version !== 3) || bank.patches?.length !== 16 || !bank.patches.every(validPatch) || !validSettings) throw new Error("This is not a compatible Pocket SCION patch or bank file.");
     if (!confirm("Import and save all 16 patches in the currently selected bank?")) return;
     const targetBank = Number(bankSelect.value);
     for (let parameter = 0; parameter < bank.settings.length; parameter++) await connection.request(Command.Set, [Scope.Bank, targetBank, 0, parameter, ...valueBytes(bank.settings[parameter])]);
