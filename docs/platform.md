@@ -69,7 +69,7 @@ The LEDs form one 800 kbit/s GRB chain on PIO1:
 | 7 | 3, side B |
 | 8 | 4, outer side B |
 
-In live synthesis, the number of active parts selects the illuminated radius. Brightness follows
+In live synthesis, the number of active notes selects the illuminated radius. Brightness follows
 the real PRA32-U amp envelope and a restrained amount of its live LFO. Actual
 ratchet firings add short white accents.
 

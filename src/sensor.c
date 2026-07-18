@@ -97,3 +97,8 @@ bool sensor_take_window(sensor_stats_t *out, float sensitivity) {
 uint32_t sensor_dropped_edges(void) {
     return dropped_edges;
 }
+
+bool sensor_has_recent_activity(uint32_t maximum_age_us) {
+    return have_last_timestamp &&
+        (uint32_t)(time_us_32() - last_timestamp) <= maximum_age_us;
+}

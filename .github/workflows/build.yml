@@ -29,6 +29,13 @@ jobs:
             -lm -o "$RUNNER_TEMP/test_sensor_math"
           "$RUNNER_TEMP/test_sensor_math"
 
+      - name: Test editor protocol
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -Isrc \
+            src/editor_protocol.c tests/test_editor_protocol.c \
+            -o "$RUNNER_TEMP/test_editor_protocol"
+          "$RUNNER_TEMP/test_editor_protocol"
+
       - name: Build UF2
         env:
           PICO_SDK_PATH: ${{ runner.temp }}/pico-sdk
@@ -41,3 +48,38 @@ jobs:
         with:
           name: pocket-scion-synth-uf2
           path: build/pocket_scion_synth.uf2
+
+  editor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: editor/package-lock.json
+      - run: npm ci
+        working-directory: editor
+      - run: npm test
+        working-directory: editor
+      - run: npm run build
+        working-directory: editor
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          path: editor/dist
+
+  deploy-editor:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: editor
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy editor to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

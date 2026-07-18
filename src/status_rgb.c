@@ -42,6 +42,7 @@ static uint32_t last_ratchet_fire_counter;
 static uint8_t ratchet_flash_frames;
 static uint8_t latched_highest_ring;
 static bool animation_counters_initialized;
+static uint8_t master_brightness = 127u;
 
 static const rgb_t parameter_colours[] = {
     [STATUS_RGB_GREEN]  = {  8, 100, 12 },
@@ -70,7 +71,7 @@ static const rgb_t scene_colours[] = {
     {100,  0,100},
 };
 
-static const rgb_t bank_colours[] = {
+static rgb_t bank_colours[] = {
     {100, 62,  8},  // Legacy
     { 72, 72, 72},  // Foundation
     {  8, 92, 28},  // Organic
@@ -179,10 +180,24 @@ static void flush(void) {
         return;
     }
     for (unsigned pixel = 0; pixel < RGB_LED_COUNT; ++pixel) {
-        pio_sm_put_blocking(rgb_pio, rgb_sm, pack_grb(pixels[pixel]));
+        uint8_t scale = (uint8_t)((uint16_t)master_brightness * 100u / 127u);
+        pio_sm_put_blocking(rgb_pio, rgb_sm,
+                            pack_grb(scale_colour(pixels[pixel], scale)));
     }
     memcpy(last_sent_pixels, pixels, sizeof(pixels));
     frame_sent = true;
+}
+
+void status_rgb_set_brightness(uint8_t brightness) {
+    master_brightness = brightness > 127u ? 127u : brightness;
+    frame_sent = false;
+}
+
+void status_rgb_set_bank_colour(uint8_t bank, uint8_t red, uint8_t green,
+                                uint8_t blue) {
+    if (bank >= sizeof(bank_colours) / sizeof(bank_colours[0])) return;
+    bank_colours[bank] = (rgb_t){red, green, blue};
+    frame_sent = false;
 }
 
 void status_rgb_init(void) {
@@ -294,7 +309,7 @@ void status_rgb_service(uint8_t program, bool pitch_bend_enabled, bool raw_mode,
     live_colour = blend_colour(live_colour, transition_colour, transition);
     live_colour = intensify_colour(live_colour);
 
-    // A genuine note onset selects the radial mask from active lane count.
+    // A genuine note onset selects the radial mask from active note count.
     // Brightness below comes directly from PRA32-U's live amp envelope, with
     // a restrained contribution from its live, patch-configured LFO.
     unsigned voice_count = active_voices > RGB_ACTIVE_PART_COUNT
@@ -348,6 +363,11 @@ void status_rgb_service(uint8_t program, bool pitch_bend_enabled, bool raw_mode,
 #else
 
 void status_rgb_init(void) {}
+void status_rgb_set_brightness(uint8_t brightness) { (void)brightness; }
+void status_rgb_set_bank_colour(uint8_t bank, uint8_t red, uint8_t green,
+                                uint8_t blue) {
+    (void)bank; (void)red; (void)green; (void)blue;
+}
 
 void status_rgb_show_level(status_rgb_colour_t colour,
                            uint8_t value, uint8_t maximum) {

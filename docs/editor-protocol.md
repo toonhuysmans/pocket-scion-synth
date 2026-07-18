@@ -1,0 +1,73 @@
+# USB MIDI editor protocol
+
+This document is sufficient to implement another Pocket SCION editor without
+using this web application. The protocol is USB-only; editor SysEx is never
+forwarded to DIN MIDI.
+
+## Frame
+
+Every message is a MIDI SysEx frame:
+
+```text
+F0 7D 50 53 VV CC RR [payload ...] ZZ F7
+```
+
+- `7D` is MIDI's development/non-commercial manufacturer ID.
+- `50 53` is the Pocket SCION product signature (`P`, `S`).
+- `VV` is protocol version `01`.
+- `CC` is a command or response.
+- `RR` is the caller's 0–127 request ID and is echoed by the response.
+- All payload values are 7-bit clean. A 14-bit value is low seven bits first.
+- `ZZ` makes the sum from `7D` through `ZZ`, modulo 128, equal zero.
+
+The host sends one request at a time. A normal request receives `ACK`, `VALUE`,
+or `CAPABILITIES`; errors receive `NACK`. Hosts should use a 1.2-second normal
+timeout and allow up to 6 seconds for flash commands.
+
+## Commands
+
+| Code | Command | Payload | Successful response |
+|---:|---|---|---|
+| `01` | Hello | none | `41` Capabilities |
+| `02` | Select patch | patch ID | `40` ACK |
+| `03` | Get parameter | scope, target, lane, parameter | `42` Value |
+| `04` | Set live parameter | scope, target, lane, parameter, value LSB, value MSB | `40` ACK |
+| `05` | Commit | scope, target | `40` ACK |
+| `06` | Revert | scope, target | `40` ACK |
+| `07` | Restore compiled default | scope, target | `40` ACK |
+
+`ACK`/`NACK` payloads contain the original command and status/error code.
+`VALUE` echoes scope, target, lane, and parameter followed by the 14-bit value.
+
+Capabilities payload is firmware major, minor, patch; patch count LSB/MSB;
+bank count; scene-parameter count; shared-patch count; bank-parameter count;
+and global-parameter count.
+The final capability byte reports the startup-detected flash capacity in MiB.
+
+## Address spaces
+
+Scopes are patch `0`, bank `1`, global `2`, and read-only live sensor `3`.
+
+- Patch targets are 0–127. Lanes 0, 1, and 2 address the 47 packed scene
+  parameters in the order documented in
+  [Banks and parameters](banks-and-parameters.md#patch-parameters). Lane 3
+  addresses 35 shared fields: scale 0–6, motif 7–22, BPM 23, Euclidean lengths
+  24–26, swing 27, gates 28–30, density bias 31, ratchet depths 32–34,
+  low-role mode/balance/sensor/variation 35–38, and six ten-parameter
+  articulation slots at 39–98. Each slot exposes algorithm, role, weight,
+  level, tune, tone, noise, decay, transient, and ratchet response.
+- Bank targets are 0–7. Parameters are tempo, breath maximum, modulation
+  maximum, cutoff range, resonance range, morph range, LFO-rate range, bend
+  percent, biased density offset, ratchet percent, gate percent, and motion
+  percent for bass, pad, and lead, red/green/blue LED levels, default low-role
+  mode, and inherited percussion balance.
+- Global target is ignored. Parameters are root, sensitivity index, volume
+  index, duration index, pitch-bend enable, multichannel enable, and LED
+  brightness.
+- Sensor parameters 0–3 are pressure, expression, transient, and bipolar pitch
+  motion mapped to 0–1000.
+
+Ordinary incoming Note, CC, Program Change, and pitch-bend messages remain
+ignored. This prevents a DAW or controller from accidentally altering the
+generative instrument; only correctly signed and checksummed editor SysEx is
+accepted.

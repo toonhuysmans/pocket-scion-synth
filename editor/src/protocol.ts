@@ -1,0 +1,149 @@
+export const Scope = { Patch: 0, Bank: 1, Global: 2, Sensor: 3 } as const;
+export const Command = {
+  Hello: 0x01, Select: 0x02, Get: 0x03, Set: 0x04,
+  Commit: 0x05, Revert: 0x06, Restore: 0x07,
+} as const;
+const Response = { Ack: 0x40, Capabilities: 0x41, Value: 0x42, Nack: 0x7f };
+const SIGNATURE = [0x7d, 0x50, 0x53, 0x01];
+
+interface MidiMessageEventLike { data: Uint8Array }
+interface MidiPortLike { name?: string | null; state?: string; connection?: string; open(): Promise<unknown> }
+interface MidiInputLike extends MidiPortLike { onmidimessage: ((event: MidiMessageEventLike) => void) | null }
+interface MidiOutputLike extends MidiPortLike { send(data: number[] | Uint8Array): void }
+interface MidiAccessLike {
+  inputs: Map<string, MidiInputLike>;
+  outputs: Map<string, MidiOutputLike>;
+  onstatechange: (() => void) | null;
+}
+
+export interface Capabilities {
+  firmware: string;
+  patchCount: number;
+  bankCount: number;
+  sceneParameters: number;
+  patchSharedParameters: number;
+  bankParameters: number;
+  globalParameters: number;
+  flashMiB: number;
+}
+
+interface Pending {
+  command: number;
+  resolve: (payload: number[]) => void;
+  reject: (error: Error) => void;
+  timer: number;
+}
+
+function checksum(bytes: number[]): number {
+  const sum = bytes.reduce((total, byte) => (total + byte) & 0x7f, 0);
+  return (128 - sum) & 0x7f;
+}
+
+export function encodeMessage(command: number, request: number, payload: number[]): number[] {
+  const body = [...SIGNATURE, command & 0x7f, request & 0x7f, ...payload.map(value => value & 0x7f)];
+  return [0xf0, ...body, checksum(body), 0xf7];
+}
+
+export function decodeMessage(data: Uint8Array): { response: number; request: number; payload: number[] } | undefined {
+  const bytes = [...data];
+  if (bytes[0] !== 0xf0 || bytes.at(-1) !== 0xf7) return undefined;
+  const body = bytes.slice(1, -1);
+  if (body.length < 7 || SIGNATURE.some((value, index) => body[index] !== value)) return undefined;
+  if ((body.reduce((sum, byte) => sum + byte, 0) & 0x7f) !== 0) return undefined;
+  return { response: body[4], request: body[5], payload: body.slice(6, -1) };
+}
+
+export function decodePatchSelection(data: Uint8Array): number | undefined {
+  if (data.length < 3 || (data[0] & 0xf0) !== 0xb0 || data[1] !== 23) return undefined;
+  return data[2] & 0x7f;
+}
+
+export function decodeRootNote(data: Uint8Array): number | undefined {
+  if (data.length < 3 || (data[0] & 0xf0) !== 0xb0 || data[1] !== 22) return undefined;
+  return data[2] & 0x7f;
+}
+
+export class PocketScionConnection extends EventTarget {
+  private access?: MidiAccessLike;
+  private input?: MidiInputLike;
+  private output?: MidiOutputLike;
+  private requestId = 0;
+  private pending = new Map<number, Pending>();
+  private chain: Promise<unknown> = Promise.resolve();
+
+  get connected(): boolean { return Boolean(this.input && this.output); }
+
+  async connect(): Promise<Capabilities> {
+    const requestMIDIAccess = (navigator as Navigator & {
+      requestMIDIAccess?: (options: { sysex: boolean }) => Promise<MidiAccessLike>
+    }).requestMIDIAccess;
+    if (!requestMIDIAccess) throw new Error("Web MIDI is unavailable. Use desktop Chrome or Edge.");
+    this.access = await requestMIDIAccess.call(navigator, { sysex: true });
+    const matches = (port: MidiPortLike) => /pocket\s*scion|pra32/i.test(port.name ?? "");
+    this.input = [...this.access.inputs.values()].find(matches);
+    this.output = [...this.access.outputs.values()].find(matches);
+    if (!this.input || !this.output) throw new Error("Pocket SCION MIDI ports were not found.");
+    await Promise.all([this.input.open(), this.output.open()]);
+    this.input.onmidimessage = event => this.receive(event.data);
+    this.access.onstatechange = () => this.dispatchEvent(new Event("statechange"));
+    const response = await this.request(Command.Hello, []);
+    if (response[0] !== Response.Capabilities) throw new Error("Unexpected discovery response.");
+    const p = response.slice(2);
+    return {
+      firmware: `${p[0]}.${p[1]}.${p[2]}`,
+      patchCount: p[3] | (p[4] << 7), bankCount: p[5],
+      sceneParameters: p[6], patchSharedParameters: p[7],
+      bankParameters: p[8], globalParameters: p[9],
+      flashMiB: p[10] ?? 0,
+    };
+  }
+
+  request(command: number, payload: number[], timeout = 1200): Promise<number[]> {
+    const operation = this.chain.then(() => this.sendRequest(command, payload, timeout));
+    this.chain = operation.catch(() => undefined);
+    return operation;
+  }
+
+  private sendRequest(command: number, payload: number[], timeout: number): Promise<number[]> {
+    if (!this.output) return Promise.reject(new Error("Pocket SCION is not connected."));
+    const request = this.requestId = (this.requestId + 1) & 0x7f;
+    const message = encodeMessage(command, request, payload);
+    return new Promise((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        this.pending.delete(request);
+        reject(new Error(`Pocket SCION request ${request} timed out.`));
+      }, timeout);
+      this.pending.set(request, { command, resolve, reject, timer });
+      this.output!.send(message);
+    });
+  }
+
+  private receive(data: Uint8Array): void {
+    const patch = decodePatchSelection(data);
+    if (patch !== undefined) {
+      this.dispatchEvent(new CustomEvent<number>("patchchange", { detail: patch }));
+      return;
+    }
+    const root = decodeRootNote(data);
+    if (root !== undefined) {
+      this.dispatchEvent(new CustomEvent<number>("rootchange", { detail: root }));
+      return;
+    }
+    const decoded = decodeMessage(data);
+    if (!decoded) return;
+    const { response, request, payload } = decoded;
+    const pending = this.pending.get(request);
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    this.pending.delete(request);
+    if (response === Response.Nack) {
+      pending.reject(new Error(`Device rejected command ${payload[0]} (error ${payload[1]}).`));
+    } else {
+      pending.resolve([response, request, ...payload]);
+    }
+  }
+}
+
+export function valueBytes(value: number): number[] {
+  return [value & 0x7f, (value >> 7) & 0x7f];
+}

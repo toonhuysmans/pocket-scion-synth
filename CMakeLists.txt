@@ -23,7 +23,9 @@ add_executable(pocket_scion_synth
     src/main.c
     src/audio_i2s.c
     src/controls.c
+    src/editor_protocol.c
     src/midi_uart.c
+    src/preset_store.c
     src/raw_capture.c
     src/sensor.c
     src/sensor_math.c
@@ -33,8 +35,8 @@ add_executable(pocket_scion_synth
 )
 
 pico_set_program_name(pocket_scion_synth "Pocket SCION PRA32-U")
-pico_set_program_version(pocket_scion_synth "2.3.0")
-pico_set_program_description(pocket_scion_synth "Sensor-driven three-part PRA32-U synthesizer")
+pico_set_program_version(pocket_scion_synth "2.4.0")
+pico_set_program_description(pocket_scion_synth "Bass/percussion, pad and lead PRA32-U synthesizer")
 pico_set_program_url(pocket_scion_synth "https://github.com/toonhuysmans/pocket-scion-synth")
 
 pico_generate_pio_header(pocket_scion_synth
@@ -49,7 +51,11 @@ target_include_directories(pocket_scion_synth SYSTEM PRIVATE vendor/pra32-u)
 target_compile_options(pocket_scion_synth PRIVATE
     -Wall -Wextra -Wshadow -Wconversion
 )
-target_compile_definitions(pocket_scion_synth PRIVATE SCION_RGB_OUTPUT_ENABLED=1)
+target_compile_definitions(pocket_scion_synth PRIVATE
+    SCION_RGB_OUTPUT_ENABLED=1
+    # All DSP and protocol storage is static; reserve only the SDK minimum.
+    PICO_HEAP_SIZE=0x100
+)
 target_link_libraries(pocket_scion_synth PRIVATE
     pico_stdlib
     hardware_clocks
@@ -57,6 +63,7 @@ target_link_libraries(pocket_scion_synth PRIVATE
     hardware_gpio
     hardware_irq
     hardware_pio
+    hardware_flash
     hardware_uart
     pico_multicore
     tinyusb_device

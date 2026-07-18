@@ -1,56 +1,59 @@
 # Experimental multitimbral design
 
-The `multi-timbral` branch maps the generative sequencer's bass, melody, and
-upper lanes to three independent monophonic PRA32-U parts. This is a structural
-experiment, not the hardware-validated v2.3.0 release.
+The `multi-timbral` branch maps the three sequencer ranges to independent
+independent PRA32-U timbres: bass/percussion, pad, and lead. This builds on the
+hardware-proven three-engine topology; it is not the hardware-validated v2.3.0
+release.
 
 ## Signal path
 
 ```text
-bass lane   → dry PRA32-U ─┐
-                           ├→ mono mix → middle chorus/delay → stereo output
-upper lane  → dry PRA32-U ─┘
-middle lane → full PRA32-U ────────────────────────────────┘
+low lane    → dry bass/percussion ─┐
+high lane   → dry lead ────────────┼→ pad chorus/delay → stereo output
+middle lane → pad PRA32-U ─────────┘
 ```
 
-Each part owns its oscillator, sub/noise mix, filter, modulation and amplifier
-envelopes, LFO, portamento state, note state, and sensor modulation. The middle
-part alone owns chorus and stereo/ping-pong delay because another delay line
-would consume roughly 64 KiB of SRAM.
+All three parts own oscillators, sub/noise mix, filter, envelopes, LFO,
+portamento, note state, and sensor modulation. The pad owns chorus and
+stereo/ping-pong delay because another delay line consumes roughly 64 KiB.
 
-## Lane directions
+## Part directions
 
-| Lane | Internal part | Deliberate transform from the selected scene |
+| Part | Architecture | Direction from the selected scene |
 |---|---|---|
-| Bass | Dry | More sub, oscillator 2 lower, darker filter, slower LFO, longer release, higher gain |
-| Melody | Full effects | Authored scene values, shared chorus/delay owner |
-| Upper | Dry | Less sub, oscillator 2 higher, brighter filter/key tracking, faster LFO, shorter release |
+| Bass/percussion | Voice-mode selectable, dry | Sub bass, tuned impacts, or filtered noise snares/hats; darker filtering and stronger pitch envelopes |
+| Pad | Voice-mode selectable, full effects | Longer envelope, harmonic body, chorus, and delay |
+| Lead | Voice-mode selectable, dry | Brighter register, faster contour, stronger motion and expressive routing |
 
-The same bank and scene still establish the common musical identity. Sensor
-cutoff, resonance, morph, and LFO motion are scaled to 70% on bass, 100% on
-melody, and 112% on upper. Breath, modulation, pitch bend, special live
-envelope changes, and all-notes-off reach every part.
+The bank and scene establish a common musical identity. Sensor cutoff,
+resonance, morph, and LFO motion are scaled to 70% on low, 88% on pad, and 115%
+on lead. Breath, modulation, pitch bend, live envelopes, and all-notes-off
+reach all three.
 
 ## Notes, MIDI, ratchets, and LEDs
 
-Each lane has exactly one active note slot. Repeating its pitch ties and extends
-the note; a new pitch ends and replaces that lane only. Ratchet events retain
-their lane identity. MIDI behavior is unchanged: channel 1 in single-channel
-mode, or bass/melody/upper on channels 1/2/3. The RGB radius maps one, two, and
-three active parts to the centre, middle, and outer ring respectively.
+Every role has one note slot. Repeating a pitch ties within its source lane; a
+new pitch replaces only the note in that role. Ratchets retain lane identity.
+The current sequencer supplies at most one simultaneous note per lane.
+Polyphonic and paraphonic PRA32-U paths therefore add no notes here while
+exceeding the RP2040 real-time budget when combined with three engines and pad
+effects. Firmware v2.3.2 exposes only monophonic, legato-with-glide, and legato
+until lane note slots and DSP resource allocation are redesigned together.
+MIDI remains channel 1, or low/pad/lead on channels 1/2/3. RGB radius follows
+one through three simultaneous notes.
 
 ## RP2040 resource strategy
 
-The full effects engine remains in the SRAM hot path. Both compact dry engine
-states fit in RAM, but inlining their second template specialization twice into
-the hot renderer would overflow RP2040 SRAM. They therefore share one
-non-inlined SRAM DSP entry point. An initial flash-resident experiment clicked
-audibly on hardware and was removed; no per-sample DSP now runs from XIP flash.
-For CPU headroom, core 1 renders upper concurrently with bass on core 0. Core 0
-then mixes them and renders the middle/effects stage. Monophonic parts also skip
-low-rate envelope, oscillator, filter, and amp updates for inactive voices.
+The full effects engine and both dry engines remain in SRAM. At 153.6 MHz,
+core 1 renders lead while core 0 renders bass/percussion and then pad/effects.
+A bounded handshake mutes lead if core 1 fails to respond, preventing a device
+freeze. Each PRA32-U instance renders all of its own oscillators on its assigned
+core. Its upstream internal two-core handshake remains disabled because nesting
+it inside this three-engine scheduler deadlocks bass and pad. The full voice
+paths remain compiled for future scheduling work but are rejected at the live
+parameter boundary in v2.3.2.
 
-This tradeoff must be tested on a physical Pocket SCION for XIP-cache timing,
-audio underruns, clicking under high pressure, effect-heavy scenes, ratchets,
-and all three parts sounding together. Do not promote this branch to a release
-until it passes [the full hardware checklist](hardware-testing.md).
+This topology must be tested on a physical Pocket SCION for audio underruns,
+clicking under high pressure, effect-heavy scenes, ratchets, controls, and all
+three notes sounding together. Do not promote this branch to a release until it
+passes [the full hardware checklist](hardware-testing.md).

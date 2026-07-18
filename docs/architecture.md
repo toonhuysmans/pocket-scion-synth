@@ -9,7 +9,7 @@ GPIO0 edges
     → sensor expression and trigger features
     → three Euclidean rhythm lanes
     → scale / motif / ratchet decisions
-    → three independent monophonic PRA32-U parts
+    → mono bass/percussion + mono pad + mono lead
     → shared chorus and stereo delay
     → gain and limiter
     → PIO0 + chained DMA
@@ -17,7 +17,8 @@ GPIO0 edges
 ```
 
 The same musical events are mirrored to UART0 DIN MIDI and class-compliant USB
-MIDI. UI state and live engine modulation drive the PIO1 RGB display.
+MIDI. Versioned USB-only editor SysEx controls live parameter snapshots and
+flash overrides. UI state and live engine modulation drive the PIO1 RGB display.
 
 ## Real-time organization
 
@@ -26,13 +27,14 @@ available, it renders and submits 256 stereo frames immediately. Between audio
 buffers it services USB/DIN MIDI, sensor windows, controls, note-off traffic,
 and RGB updates.
 
-The upper part renders on RP2040 core 1 while core 0 renders bass, then core 0
-adds the middle part and shared effects. Monophonic parts skip low-rate work for
-their three inactive PRA32-U voices. The full middle engine and all lookup
-tables used by oscillator, filter, envelope, LFO, and effects paths reside in
-SRAM. Both dry parts share one non-inlined SRAM processing entry point so code
-is not duplicated and no per-sample DSP executes from XIP flash. The tighter
-remaining SRAM margin makes physical timing and stress validation mandatory.
+Core 1 renders the complete lead engine while core 0 renders bass/percussion followed
+by the pad and shared effects. This is the hardware-proven division of work.
+The cross-core wait is bounded: if the lead render does not complete, it is
+muted for that boot instead of freezing audio, controls, and LEDs. All
+per-sample code and lookup tables reside in SRAM; no audio DSP executes from
+XIP flash. PRA32-U's internal secondary-core split is disabled so polyphonic
+and paraphonic engine modes cannot wait on a nested core handshake. The 153.6
+MHz clock is exactly 3,200 times the 48 kHz sample rate.
 
 ## Generative sequencing
 
@@ -42,10 +44,23 @@ melodic spread, velocity, patch modulation, and ratchet probability. Banks
 provide different musical directions rather than merely changing oscillator
 waveforms.
 
-Each lane owns one monophonic part. A new pitch replaces only the previous note
-in that lane, while a repeated pitch becomes a tie and extends duration without
-restarting its envelope. Thus bass activity cannot steal the melody or upper
-part, and attack churn remains isolated to the lane that actually changed.
+Held USB MIDI notes build a transient pitch-class constraint after scale,
+motif, octave, and low-lane articulation. Up to seven distinct pitch classes
+are captured over 50 ms and then atomically replace the previous latched chord.
+Each generated note is moved to the nearest allowed pitch class before note
+scheduling and MIDI output. Releasing keys keeps the chord active; CC 120 or a
+USB disconnect clears it and restores the stored patch scale.
+
+Ten-edge windows update an adaptive absolute-pressure range, adaptive signal
+variation, and a fast transient. Musical timing runs from a separate 50 Hz hold
+tick using the most recent valid state, so a quiet plant or very light touch
+does not stop the sequencer while the next window accumulates. Individual edge
+activity distinguishes a slow source from an open input. After 1.5 seconds
+without an accepted edge, new sequencing stops until activity returns.
+
+The low, middle, and high lanes each own one monophonic slot for
+bass/percussion, pad, and lead. Repeated pitches tie within their lane; a new
+pitch replaces only the previous note in that same role.
 
 ## Synthesis
 
@@ -54,16 +69,27 @@ multimode filters, per-voice envelopes, multiple LFO waveforms, portamento,
 chorus, stereo delay, and modulation routing. Each part uses the synthesis and
 modulation sections. The scene builder in
 [`src/synth.cpp`](../src/synth.cpp) defines 128 patches across eight banks and
-maps live sensor statistics into patch-appropriate parameter ranges. Bass,
-melody, and upper variants then deliberately offset oscillator balance, tuning,
-filter range, envelopes, LFO behavior, and gain. Only the middle part owns the
-chorus and delay; the other two are mixed into that shared stage.
+maps live sensor statistics into patch-appropriate parameter ranges. The low
+part ranges from sub bass and tuned percussion to genuine filtered noise for
+snares and hats. The pad supplies harmonic body and owns the patch-shared
+chorus/delay: dry bass and lead signals feed that single effects stage. The
+lead uses a brighter, faster, more expressive transform. The low lane can
+inherit a bank default or run Bass, Percussion, or alternating Hybrid events;
+six stored articulation slots provide the per-hit percussion vocabulary.
 
 ## MIDI
 
 DIN and USB outputs carry note on/off, velocity, ratchets, pitch bend, and
 expressive controller changes. Single-channel mode uses channel 1. Multichannel
 mode maps the three sequencer lanes to MIDI channels 1–3.
+
+Correctly signed USB SysEx is parsed in the foreground and can read, audition,
+save, revert, or restore parameters. The active patch and bank stay in RAM;
+other overrides are read directly from a dual-half append-only flash journal.
+The journal is placed from the flash chip's startup-detected JEDEC capacity,
+not the board header's maximum address space. Flash saving uses a bounded SDK
+safe-execute operation and never runs from an audio ISR or per-sample path. See the
+[editor protocol](editor-protocol.md).
 
 ## Raw output
 

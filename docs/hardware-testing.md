@@ -69,21 +69,31 @@ persistent notes after changing patches.
 - Make fast changes and check for clicks or audio starvation.
 - Exercise all eight sensitivity levels.
 
-Pay special attention to high pressure with all three simultaneous parts,
+Pay special attention to high pressure with all three simultaneous notes,
 where earlier builds exposed clicking.
 
-## 4. Parts and envelopes
+## 4. Voice separation and envelopes
 
-- Reach one, two, and three simultaneous parts and observe the growing
-  LED radius.
-- Confirm a new note replaces only the previous note in its own lane.
+- Reach one, two, and three simultaneous notes and observe the growing LED
+  radius.
+- Confirm bass/percussion, pad, and lead remain separately monophonic.
 - Confirm repeated pitches tie and extend rather than repeatedly restarting at
   a quiet attack.
 - Test short Percussive envelopes and long Atmosphere envelopes.
+- In every bank, audition Bass, Percussion, Hybrid, and Inherit low-lane modes.
+- Set each articulation slot to kick, tom, snare, closed/open hat, clap,
+  rim/wood, and shaker/metal in turn. Verify zero weight disables it and role,
+  tune, tone, noise, decay, transient, level, and ratchet edits are audible.
+- Confirm Hybrid keeps strong anchors bass-led and becomes more percussive as
+  balance and sensor influence rise, without clicks or stuck notes.
 - Check Foundation/Legacy Glass Pluck, Acid Teeth, and Pitch-envelope
   Percussion under low and high sensor activity.
 - Confirm patch changes and MIDI-mode changes send note-offs and leave no stuck
   voices.
+- Send USB MIDI chords containing one through seven distinct pitch classes.
+  Confirm every generated lane stays on a captured pitch class, the previous
+  chord remains active between changes, and a new chord replaces it without a
+  patch-scale note leaking through. Confirm CC 120 restores the patch scale.
 
 ## 5. Rhythm and ratchets
 
@@ -93,7 +103,7 @@ where earlier builds exposed clicking.
 - Confirm ratchets vary between two and four subdivisions and occur more often
   in Percussive/Extreme than Atmosphere.
 - Confirm white LED flashes occur only when a ratchet actually fires.
-- Listen for clicks at every ratchet intensity and with all three parts active.
+- Listen for clicks at every ratchet intensity and with all three notes active.
 
 ## 6. Controls
 
@@ -142,6 +152,17 @@ Test USB MIDI and DIN MIDI independently, then together.
   breath.
 - Switch programs, MIDI modes, and raw mode repeatedly and check for stuck
   notes.
+- Connect the web editor in desktop Chrome/Edge and confirm discovery reports
+  the expected firmware and all 128 patch slots.
+- Move representative oscillator, filter, envelope, effect, sequence, sensor,
+  LED, and global controls while all three lanes and ratchets are active;
+  listen for clicks, starvation, or stuck notes.
+- Save a patch, its bank settings, and globals, then power-cycle and confirm
+  exact recall. Revert unsaved changes and restore the compiled patch default.
+- Export/import patch and bank JSON, interrupt one save by removing power, and
+  verify the previous valid record or compiled default still boots.
+- Confirm editor SysEx never appears at DIN MIDI and ordinary incoming MIDI
+  notes/controllers remain ignored.
 
 ## 9. Raw Output Mode
 
@@ -160,7 +181,7 @@ Test USB MIDI and DIN MIDI independently, then together.
 Run for at least fifteen minutes with:
 
 - high sensor activity;
-- all three parts active;
+- all three notes active;
 - pitch bend enabled;
 - an effect-heavy or Extreme patch;
 - DIN and USB MIDI connected;

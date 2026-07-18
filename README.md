@@ -3,11 +3,12 @@
 An alternative, clean-room firmware for the Instruō Pocket SCION that turns
 the RP2040 hardware into a real-time, sensor-driven multitimbral synthesizer.
 Instead of selecting prerecorded samples, it generates every sound live with
-oscillators, filters, envelopes, LFOs, chorus, delay, and three independent
-monophonic parts.
+oscillators, filters, envelopes, LFOs, chorus, delay, and three distinct
+musical roles: bass/percussion, pad, and lead.
 
-> **Experimental branch:** `multi-timbral` gives the bass, melody, and upper
-> sequencer lanes separate PRA32-U timbres. The compiled v2.3.0 release below
+> **Experimental branch:** `multi-timbral` gives bass/percussion, pad, and lead
+> independent monophonic PRA32-U timbres. The
+> compiled v2.3.0 release below
 > remains the hardware-tested single-timbre firmware; build this branch from
 > source until its real-time behavior has been validated on a Pocket SCION.
 
@@ -21,9 +22,12 @@ respective owner.
 
 - 128 deliberately designed patches across eight banks
 - Three sensor-modulated Euclidean rhythm lanes
-- Three-part multitimbral PRA32-U synthesis at 48 kHz stereo
+- Separate bass/percussion, pad, and lead PRA32-U synthesis at 48 kHz
 - Sensor control of notes, expression, timbre, rhythm, ratchets, and pitch bend
-- DIN MIDI and class-compliant USB MIDI output
+- DIN MIDI output plus bidirectional class-compliant USB MIDI
+- Browser patch editor with live control, flash saves, and patch/bank JSON
+- Per-patch Bass, Percussion, or Hybrid low role with six editable drum slots
+- Patch-shared chorus and stereo delay across the complete three-part mix
 - Single-channel and three-channel MIDI modes
 - Raw sensor pulse output with pressure-to-pitch response
 - Nine-pixel RGB display linked to live amp envelopes, LFO, polyphony, and
@@ -68,10 +72,12 @@ is linked rather than redistributed by this project.
 GPIO0 supplies edge timestamps from the biofeedback oscillator. Ten accepted
 intervals form one analysis window. Range, variance, standard deviation,
 proximity, and trigger statistics continuously reshape a generative sequencer.
-Three Euclidean lanes choose notes from a scale and feed independent bass,
-melody, and upper [PRA32-U](https://github.com/risgk/digital-synth-pra32-u)
-parts. The dry outer parts enter the melody part's shared chorus/delay stage,
-then reach the onboard DAC through an exact-rate PIO/DMA I2S pipeline.
+Three Euclidean lanes choose notes from a scale. Independent
+[PRA32-U](https://github.com/risgk/digital-synth-pra32-u) engines voice the low
+lane as bass/percussion, the middle lane as a pad, and the high lane as a lead.
+The dry low and lead sum enters the pad engine's
+chorus/delay stage, then reaches the onboard DAC through an exact-rate PIO/DMA
+I2S pipeline.
 
 The firmware retains the useful physical interface—buttons, MIDI, raw mode,
 and the five-ring RGB artwork—but gives it a new synthesis and sequencing
@@ -94,13 +100,25 @@ engine.
 
 See [docs/controls.md](docs/controls.md) for display feedback and MIDI details.
 
+## USB patch editor
+
+The [`editor/`](editor/) web application exposes all three 47-parameter synth
+snapshots together with sequence, sensor-routing, rhythm, MIDI, and global
+settings. It runs in desktop Chrome or Edge through Web MIDI SysEx. Changes can
+be auditioned live, explicitly saved into any of the 128 flash-backed slots,
+reverted, restored to compiled defaults, and exchanged as readable patch or
+bank JSON. See the [editor guide](docs/editor.md).
+
 ## Documentation
 
 - [Platform and peripherals](docs/platform.md)
 - [Firmware architecture](docs/architecture.md)
 - [Multitimbral branch design](docs/multitimbral.md)
 - [Banks, scenes, and parameters](docs/banks-and-parameters.md)
+- [Bass, percussion, and hybrid low lane](docs/low-articulation.md)
 - [Controls, modes, and MIDI](docs/controls.md)
+- [USB patch editor](docs/editor.md)
+- [Open editor SysEx protocol](docs/editor-protocol.md)
 - [Clean-room reverse engineering](docs/reverse-engineering.md)
 - [Building from source](docs/building.md)
 - [Hardware testing checklist](docs/hardware-testing.md)
@@ -117,6 +135,7 @@ also follow the repository instructions in [AGENTS.md](AGENTS.md).
 boards/       RP2040 board definition
 pio/          I2S and WS2812 PIO programs
 src/          platform, sequencer, synthesis adapter, MIDI, and UI
+editor/       installable TypeScript Web MIDI patch editor
 tests/        host-side sensor mathematics tests
 vendor/       pinned CC0 PRA32-U DSP headers and provenance
 docs/         hardware and implementation documentation

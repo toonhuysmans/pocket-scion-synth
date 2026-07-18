@@ -23,3 +23,4 @@ void sensor_analyze_intervals(
     sensor_stats_t *out
 );
 uint32_t sensor_dropped_edges(void);
+bool sensor_has_recent_activity(uint32_t maximum_age_us);

@@ -2,6 +2,7 @@
 
 #include "audio_i2s.h"
 #include "controls.h"
+#include "editor_protocol.h"
 #include "hardware/clocks.h"
 #include "midi_uart.h"
 #include "pico/stdlib.h"
@@ -12,6 +13,15 @@
 
 static synth_t synth;
 static bool usb_midi_was_mounted;
+
+static void apply_midi_chord_note(uint8_t note, bool pressed) {
+    synth_midi_chord_note(&synth, note, pressed);
+}
+
+static void reset_midi_chord(bool clear_latch) {
+    if (clear_latch) synth_midi_chord_clear(&synth);
+    else synth_midi_chord_release(&synth);
+}
 
 static void show_program_state(void) {
     if (synth.raw_mode) {
@@ -88,6 +98,9 @@ int main(void) {
     synth_init(&synth);
     controls_init();
     midi_uart_init();
+    midi_set_note_input_handler(apply_midi_chord_note);
+    midi_set_chord_reset_input_handler(reset_midi_chord);
+    editor_protocol_init(&synth);
     synth_sync_midi(&synth);
     sensor_init();
     audio_i2s_init();
@@ -101,6 +114,8 @@ int main(void) {
         bool usb_midi_is_mounted = midi_usb_mounted();
         if (usb_midi_is_mounted && !usb_midi_was_mounted) {
             synth_sync_midi(&synth);
+        } else if (!usb_midi_is_mounted && usb_midi_was_mounted) {
+            synth_midi_chord_clear(&synth);
         }
         usb_midi_was_mounted = usb_midi_is_mounted;
         uint32_t *audio_frames;
@@ -118,6 +133,7 @@ int main(void) {
         if (sensor_take_window(&stats, synth_sensitivity(&synth))) {
             synth_sensor_window(&synth, &stats);
         }
+        synth_sensor_tick(&synth, sensor_has_recent_activity(1500000u));
 
         uint8_t active_voices = 0;
         for (unsigned i = 0; i < SYNTH_VOICE_COUNT; ++i) {

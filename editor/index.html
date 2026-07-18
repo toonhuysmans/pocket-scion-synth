@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#151914" />
+    <meta name="description" content="Edit and save Pocket SCION synthesis firmware patches over USB MIDI." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" />
+    <title>Pocket SCION Editor</title>
+  </head>
+  <body>
+    <header>
+      <div>
+        <p class="eyebrow">Alternative synthesis firmware</p>
+        <h1>Pocket SCION Editor</h1>
+      </div>
+      <div class="connection">
+        <span id="connection-light"></span>
+        <span id="connection-label">Not connected</span>
+        <button id="connect">Connect USB MIDI</button>
+      </div>
+    </header>
+    <main>
+      <section class="toolbar panel">
+        <label>Bank <select id="bank"></select></label>
+        <label>Patch <select id="patch"></select></label>
+        <button id="reload" disabled>Reload</button>
+        <span id="dirty" aria-live="polite"></span>
+        <span class="spacer"></span>
+        <button id="save-patch" disabled>Save patch</button>
+        <button id="save-bank" disabled>Save bank settings</button>
+        <button id="save-globals" disabled>Save globals</button>
+      </section>
+      <nav id="tabs" aria-label="Editor sections"></nav>
+      <details class="guide panel">
+        <summary>How low articulation and shared effects work</summary>
+        <div class="guide-grid">
+          <section>
+            <h2>Low-lane mode</h2>
+            <p><strong>Inherit</strong> follows the bank. <strong>Bass</strong> stays pitched, <strong>Percussion</strong> articulates every low event, and <strong>Hybrid</strong> alternates bass and percussion while keeping strong anchors bass-led.</p>
+          </section>
+          <section>
+            <h2>Six articulation slots</h2>
+            <p>Each slot selects a drum sound, rhythmic role, weight, level, tune, tone, body/noise, decay, transient, and ratchet response. Weight zero disables a slot.</p>
+          </section>
+          <section>
+            <h2>Musical selection</h2>
+            <p>Anchor, backbeat, offbeat, fill, and free roles bias selection without creating a rigid pattern. The low Euclidean lane still decides when a hit occurs.</p>
+          </section>
+          <section>
+            <h2>Sensor and effects</h2>
+            <p>Sensor influence and Variation animate articulations and Hybrid balance. Chorus and delay under Pad + effects process bass, pad, and lead together and are saved per patch.</p>
+          </section>
+        </div>
+        <p class="guide-link"><a href="https://github.com/toonhuysmans/pocket-scion-synth/blob/multi-timbral/docs/low-articulation.md" target="_blank" rel="noreferrer">Read the complete low-articulation guide on GitHub</a></p>
+      </details>
+      <section id="editor" class="panel empty">
+        Connect a Pocket SCION running compatible editor firmware.
+      </section>
+      <section class="file-tools panel">
+        <div>
+          <h2>Share and back up</h2>
+          <p>JSON files are readable, versioned, and contain no proprietary firmware or samples.</p>
+        </div>
+        <button id="export-patch" disabled>Export patch</button>
+        <button id="export-bank" disabled>Export bank</button>
+        <button id="import-file" disabled>Import JSON</button>
+        <input id="file" type="file" accept="application/json,.json" hidden />
+      </section>
+      <section class="danger panel">
+        <div>
+          <h2>Recovery</h2>
+          <p>Restore removes the user override and returns to the compiled alternative-firmware default.</p>
+        </div>
+        <button id="revert" disabled>Revert unsaved edits</button>
+        <button id="restore" disabled>Restore patch default</button>
+      </section>
+      <p id="status" role="status"></p>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

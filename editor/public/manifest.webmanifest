@@ -1,0 +1,10 @@
+{
+  "name": "Pocket SCION Editor",
+  "short_name": "SCION Editor",
+  "description": "Edit and save Pocket SCION synthesis patches over USB MIDI.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0c0f0c",
+  "theme_color": "#151914",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

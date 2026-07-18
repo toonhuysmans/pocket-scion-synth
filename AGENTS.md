@@ -34,6 +34,7 @@ src/          firmware, synthesis, sequencing, controls, MIDI, and display
 tests/        host-side deterministic tests
 vendor/       pinned third-party PRA32-U DSP source and provenance
 docs/         architecture, platform, interaction, and testing notes
+editor/       TypeScript Web MIDI patch editor and tests
 releases/     curated release UF2 and checksum manifest
 ```
 
@@ -56,6 +57,16 @@ cc -std=c11 -Wall -Wextra -Werror \
   -Isrc src/sensor_math.c tests/test_sensor_math.c \
   -lm -o /tmp/test_sensor_math
 /tmp/test_sensor_math
+```
+
+For editor or USB protocol changes, also run:
+
+```sh
+cc -std=c11 -Wall -Wextra -Werror -Isrc \
+  src/editor_protocol.c tests/test_editor_protocol.c \
+  -o /tmp/test_editor_protocol
+/tmp/test_editor_protocol
+cd editor && npm test && npm run build
 ```
 
 Before handing off a firmware change:
@@ -88,10 +99,8 @@ USB service, sensor analysis, and UI work out of the per-sample render path.
 Preserve the dual-core PRA32-U arrangement and SRAM placement of hot DSP code
 and lookup tables unless timing is measured again on hardware.
 
-There are three independent monophonic synth parts, one for each sequencer
-lane. A new pitch may replace only the previous note in its own lane. Repeated
-pitches tie and extend without restarting their envelope; this prevents
-low-volume attack churn and cross-lane voice stealing.
+There are three independent monophonic timbres: bass/percussion, pad, and lead.
+New notes replace only their own role, while repeated pitches tie and extend.
 
 Changes to clocks, DMA buffer size, PIO timing, gain, effects, raw capture,
 part count, or cross-core memory placement are high-risk and require the full
@@ -112,7 +121,7 @@ hardware checklist.
 
 When altering controls, test single, double, triple, held, shifted, and paired
 button gestures for conflicts. When altering patches, compare quiet and high
-sensor pressure, all three active parts, ratchets, and effect-heavy scenes.
+sensor pressure, all three active notes, ratchets, and effect-heavy scenes.
 
 ## Clean-room and licensing boundary
 

@@ -22,6 +22,41 @@ CC 23 is `bank × 16 + program`, ranging from 0 to 127.
 | 6 | Spectral | 112% | Alternating filter modes, wider oscillator and pitch geometry, stronger resonance, envelope/LFO pitch routing, faster timbral motion, and upward register expansion. |
 | 7 | Extreme | 135% | Deliberately bounded edge cases: hard waveform contrasts, high resonance, fast LFOs, maximum routing, strong effects, short gates, dense rhythms, wide bends, and aggressive ratchets. |
 
+Each bank also deliberately separates the three timbral roles:
+
+| Bank | Low: bass/percussion | Middle: pad | High: lead |
+|---|---|---|---|
+| Legacy | Synth bass, pulse, sub thump, or noisy accent | Balanced playable pad | Clear lead/pluck |
+| Foundation | Round sub, filter pluck, pitch pulse, or growl | Reference harmonic pad | Bright reference lead |
+| Organic | Mallet, skin tom, wooden knock, or noise shaker | Warm, slowly breathing pad | Expressive reed lead |
+| Percussive | Per-hit kick, tom, noise-snare, or noise-hat | Compact chord stabs | Bright pluck |
+| Bass & Lead | Sustained sub, resonant bass, pitch accent, or dirty bass | Dark analog chord bed | Portamento acid/solo lead |
+| Atmosphere | Sub drone, heartbeat, swell, or filtered wind | Longest evolving pad | Slow high-pass air lead |
+| Spectral | Resonant body, metal strike, noise click, or hollow ring | Glass/high-pass pad | Glass/noise lead |
+| Extreme | Per-hit randomized sub/noise impacts | Animated gated cloud | Unstable sample-and-hold lead |
+
+The low lane is configurable independently of bank identity. Every patch can
+inherit its bank default or force **Bass**, **Percussion**, or **Hybrid**.
+Hybrid alternates bass and percussion events because both use the same low
+synth engine; it does not attempt two simultaneous low voices. Bank defaults
+are Bass for Legacy, Bass & Lead, and Atmosphere; Percussion for Percussive;
+and Hybrid for Foundation, Organic, Spectral, and Extreme. A bank-level
+percussion balance sets the inherited Hybrid tendency, while a patch override
+has its own balance.
+
+Every patch contains six configurable articulation slots. Each slot chooses
+kick, tom, snare, closed hat, open hat, clap, rim/wood, or shaker/metal and
+stores weight, rhythmic role, level, tuning, tone, body/noise balance, decay,
+transient, and ratchet response. Rhythmic roles are anchor, backbeat, offbeat,
+fill, and free. The selector favours slots whose role matches the current
+sixteenth-note position; zero weight disables a slot.
+
+Pressure/expression, proximity, and signal spread are applied after the stored
+slot values. The patch's Sensor influence controls their depth and Variation
+controls random parameter motion and Hybrid switching. This gives every bank
+the same exposed percussion vocabulary while its authored defaults retain a
+distinct direction.
+
 The **pitch-bend layer is separate from the eight banks**. Holding Instrument
 toggles sensor pitch bend for whichever bank and scene are active; it does not
 replace the selected patch.
@@ -70,8 +105,20 @@ discrete mode. The scene builder sets the following 47 fields.
 | LFO | waveform, rate, depth, fade, oscillator amount/destination, filter amount | Provide periodic or sample-and-hold motion for pitch, waveform, and filter. |
 | Amplifier | gain, attack, decay, sustain, release, EG amp modulation, release-equals-decay | Set level and the audible note contour. |
 | Expression | breath-to-filter, breath-to-amplitude, EG velocity, amp velocity | Define how sensor breath and note velocity affect timbre and loudness. |
-| Chorus | mix, rate, depth | Add stereo width and slow modulation. |
-| Delay | feedback, time, mode | Add stereo or ping-pong repeats. |
+| Shared chorus | mix, rate, depth | Add stereo width and slow modulation to the complete three-part mix. Stored in the pad snapshot. |
+| Shared delay | feedback, time, mode | Add stereo or ping-pong repeats to the complete three-part mix. Stored in the pad snapshot. |
+
+The bass and lead PRA32-U instances bypass effects and feed the pad instance's
+chorus/delay stage. Their packed snapshots retain unused FX bytes for storage
+compatibility, but the editor exposes only the effective shared controls.
+
+### Low-articulation parameters
+
+| Owner | Parameters |
+|---|---|
+| Patch | mode override, percussion balance, sensor influence, variation |
+| Six slots per patch | sound algorithm, rhythmic role, weight, level, tune, tone, body/noise, decay, transient, ratchet response |
+| Bank | default low-lane mode and inherited percussion balance |
 
 The authoritative numeric patch construction is in
 [`make_foundation_scene()` and `make_scene()`](../src/synth.cpp). Bank variants
@@ -82,16 +129,31 @@ so there is no hidden preset file.
 
 Each accepted window contains ten GPIO edge intervals. The analysis exposes
 minimum, maximum, range (`delta`), mean, variance, standard deviation, a range
-fault, and a trigger flag. The synth derives:
+fault, and a trigger flag. It learns slowly contracting low/high envelopes for
+both mean interval and coefficient of variation. Fast envelope expansion
+captures a new gesture while slow contraction follows drift. The synth derives:
 
-- **Expression:** `clamp(standard deviation / mean × 8)`, then 0.16 smoothing.
-- **Proximity:** `1 − clamp(mean / 100000 µs)`, then 0.12 smoothing.
+- **Absolute pressure/proximity:** 78% adaptive position within the learned
+  mean-interval range plus 22% fixed `1 − mean / 100000 µs`, then 0.18
+  smoothing. A stable source rests near the adaptive midpoint rather than off.
+- **Variation/expression:** 82% adaptive coefficient-of-variation position plus
+  18% fixed `standard deviation / mean × 8`, then 0.22 smoothing.
+- **Transient:** the fast change in adaptive pressure and mean interval, with
+  fast attack and slower decay.
 - **Bend motion:** relative change in consecutive means, scaled by four,
   clamped to ±1, then 0.18 smoothing.
 - **Spread:** `clamp(delta / 60000 µs)`, used in ratchet drive and selected
   envelopes.
-- **Breath:** 65% proximity plus 35% expression, limited by the bank route.
-- **Modulation:** expression, limited by the bank route.
+- **Breath:** 68% pressure, 24% variation, and 8% transient, limited by the bank
+  route.
+- **Modulation:** 76% variation plus 24% transient, limited by the bank route.
+
+Fresh ten-edge windows update these measurements, but they no longer clock the
+sequencer. A 50 Hz hold tick continues from the last valid state while sparse
+plant edges accumulate. Individual edge activity distinguishes a slow source
+from an open circuit: 1.5 seconds without any accepted edge marks the input
+inactive and stops new notes. Thus slow window completion is allowed without
+letting a disconnected pad sequence forever.
 
 ### Bank sensor routes
 
@@ -132,15 +194,14 @@ their transient contours from remaining uniformly short.
 Base lane gates are 2.20 steps for bass, 1.45 for melody, and 0.90 for the
 upper voice before duration and bank scaling. Percussive uses ×0.62, Bass &
 Lead ×1.15, Atmosphere ×1.85, Extreme ×0.78, and other banks ×1. Notes are
-played by three independent monophonic parts. Repeated pitches tie instead of
-restarting their envelopes; a new pitch replaces only the note in its own lane.
+played by three independent monophonic parts: bass/percussion, pad, and lead.
+Repeated pitches tie within their lane; a new pitch replaces only the note in
+that same role.
 
-Every base scene receives a deliberate lane transform. Bass adds sub weight,
-lowers oscillator 2, darkens the filter, and moves more slowly. Melody retains
-the authored scene most closely and owns the shared chorus/delay. Upper reduces
-sub content, raises oscillator 2, brightens key tracking/filtering, and uses
-faster LFO and envelope values. Sensor modulation reaches all three parts with
-reduced depth on bass and expanded depth on upper.
+Every base scene receives deliberate role transforms. Low emphasizes sub,
+darker filtering, percussion and noise; pad emphasizes harmonic sustain and
+owns chorus/delay; lead emphasizes brightness, speed, and expressive motion.
+Sensor modulation depth is 70% for low, 88% for pad, and 115% for lead.
 
 Ratchet probability combines expression (48%), proximity (20%), spread (22%),
 and sensitivity, followed by the bank multiplier. A successful ratchet divides

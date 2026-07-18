@@ -21,6 +21,12 @@ typedef struct {
 static midi_event_t queue[MIDI_QUEUE_CAPACITY];
 static uint8_t queue_read;
 static uint8_t queue_write;
+static void (*sysex_byte_handler)(uint8_t byte);
+static void (*note_input_handler)(uint8_t note, bool pressed);
+static void (*chord_reset_input_handler)(bool clear_latch);
+static uint8_t sysex_tx[96];
+static uint16_t sysex_tx_length;
+static uint16_t sysex_tx_position;
 
 static void __not_in_flash_func(enqueue)(uint8_t status, uint8_t data1,
                                          uint8_t data2, uint8_t length) {
@@ -52,11 +58,35 @@ void midi_uart_init(void) {
 void midi_service(void) {
     tud_task();
 
-    // A MIDI descriptor necessarily includes a host-to-device endpoint. Drain
-    // it even though this firmware deliberately operates as MIDI output only.
     while (tud_midi_available()) {
         uint8_t packet[4];
-        (void)tud_midi_packet_read(packet);
+        if (!tud_midi_packet_read(packet)) break;
+        uint8_t cin = packet[0] & 0x0fu;
+        uint8_t count = cin == 0x05u ? 1u : cin == 0x06u ? 2u : 3u;
+        if (cin >= 0x04u && cin <= 0x07u &&
+            sysex_byte_handler != NULL) {
+            for (uint8_t index = 0u; index < count; ++index) {
+                sysex_byte_handler(packet[index + 1u]);
+            }
+        } else if ((cin == 0x08u || cin == 0x09u) &&
+                   note_input_handler != NULL) {
+            const bool pressed = cin == 0x09u && packet[3] != 0u;
+            note_input_handler((uint8_t)(packet[2] & 0x7fu), pressed);
+        } else if (cin == 0x0bu && chord_reset_input_handler != NULL &&
+                   (packet[2] == 120u || packet[2] == 123u)) {
+            chord_reset_input_handler(packet[2] == 120u);
+        }
+    }
+
+    if (sysex_tx_position < sysex_tx_length && tud_midi_mounted()) {
+        uint32_t sent = tud_midi_stream_write(
+            0u, &sysex_tx[sysex_tx_position],
+            (uint32_t)(sysex_tx_length - sysex_tx_position));
+        sysex_tx_position = (uint16_t)(sysex_tx_position + sent);
+        if (sysex_tx_position == sysex_tx_length) {
+            sysex_tx_position = 0u;
+            sysex_tx_length = 0u;
+        }
     }
 
     while (queue_read != queue_write) {
@@ -81,6 +111,29 @@ void midi_service(void) {
         if (event->uart_index < event->length) return;
         queue_read = (uint8_t)((queue_read + 1u) % MIDI_QUEUE_CAPACITY);
     }
+}
+
+bool midi_usb_send_sysex(const uint8_t *bytes, uint16_t length) {
+    if (bytes == NULL || length == 0u || length > sizeof(sysex_tx) ||
+        sysex_tx_length != 0u || !tud_midi_mounted()) return false;
+    for (uint16_t index = 0u; index < length; ++index) {
+        sysex_tx[index] = bytes[index];
+    }
+    sysex_tx_length = length;
+    sysex_tx_position = 0u;
+    return true;
+}
+
+void midi_set_sysex_byte_handler(void (*handler)(uint8_t byte)) {
+    sysex_byte_handler = handler;
+}
+
+void midi_set_note_input_handler(void (*handler)(uint8_t note, bool pressed)) {
+    note_input_handler = handler;
+}
+
+void midi_set_chord_reset_input_handler(void (*handler)(bool clear_latch)) {
+    chord_reset_input_handler = handler;
 }
 
 bool midi_usb_mounted(void) {

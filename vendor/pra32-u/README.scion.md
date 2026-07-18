@@ -22,15 +22,17 @@ them into SRAM. Their values are unchanged.
 
 The SCION adapter also parameterizes the synth with an effects-bypass template
 for compact dry parts and exposes read-only envelope/LFO visualization taps.
-On this multitimbral branch, the monophonic process path omits upstream's
-secondary-core request/wait handshake because that branch performs no
-secondary-core DSP work. Polyphonic and paraphonic paths retain the upstream
-two-core behavior.
+On this multitimbral branch, every engine renders all of its own oscillator and
+filter voices locally. The firmware separately assigns the complete lead engine
+to RP2040 core 1, so enabling PRA32-U's internal secondary-core request/wait
+handshake would nest two schedulers and deadlock bass or pad in polyphonic and
+paraphonic modes. `PRA32_U_EMULATION` selects upstream's full voice-mode paths
+without enabling that internal split; it does not add an emulator runtime.
 
 All per-sample PRA32-U code remains in SRAM. In particular, the shared dry-part
 specialization must not be moved to XIP flash: hardware testing showed audible
 cache-miss clicking even with lookup tables retained in SRAM.
 
 The monophonic low-rate scheduler skips oscillator, filter, amplifier, and
-envelope updates for inactive voices 1–3. Pocket SCION renders its independent
-upper part on core 1 instead of asking PRA32-U to calculate unused voices.
+envelope updates for inactive voices 1–3. Core 1 renders the independent lead;
+core 0 renders bass/percussion followed by pad and effects.
