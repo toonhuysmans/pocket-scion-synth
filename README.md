@@ -6,11 +6,10 @@ Instead of selecting prerecorded samples, it generates every sound live with
 oscillators, filters, envelopes, LFOs, chorus, delay, and three distinct
 musical roles: bass/percussion, pad, and lead.
 
-> **Experimental branch:** `multi-timbral` gives bass/percussion, pad, and lead
-> independent monophonic PRA32-U timbres. The
-> compiled v2.3.0 release below
-> remains the hardware-tested single-timbre firmware; build this branch from
-> source until its real-time behavior has been validated on a Pocket SCION.
+Release v2.4.0 is the first packaged multi-timbral build: bass/percussion, pad,
+and lead use independent PRA32-U timbres while sharing the final effects stage.
+The previous [v2.3.0 single-timbre release](https://github.com/toonhuysmans/pocket-scion-synth/releases/tag/v2.3.0)
+remains available as a rollback option.
 
 [![Watch the video](https://img.youtube.com/vi/5qdIYkmIK2Y/maxresdefault.jpg)](https://youtu.be/5qdIYkmIK2Y)
 
@@ -37,7 +36,7 @@ respective owner.
 ## Install the compiled firmware
 
 The ready-to-flash build is
-[`releases/pocket_scion_synth_v2.3.0.uf2`](releases/pocket_scion_synth_v2.3.0.uf2).
+[`releases/pocket_scion_synth_v2.4.0.uf2`](releases/pocket_scion_synth_v2.4.0.uf2).
 
 1. Disconnect the Pocket SCION from USB.
 2. Hold its RP2040 boot-selection control while reconnecting USB, or otherwise
@@ -49,7 +48,7 @@ The ready-to-flash build is
 The SHA-256 digest is:
 
 ```text
-0b649b349ff7d80dbb2adc0df043c73c1219b6a2c9f8c301b31d10ee8e3f1840
+ce367a389a3248ab620f98aaede7c0e3b3c2ef7855b558953ef10dcdeb0ae29f
 ```
 
 Use moderate monitoring volume for the first boot. A short A/E/A startup chord

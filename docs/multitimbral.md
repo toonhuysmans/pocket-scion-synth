@@ -1,9 +1,8 @@
-# Experimental multitimbral design
+# Multi-timbral design
 
 The `multi-timbral` branch maps the three sequencer ranges to independent
-independent PRA32-U timbres: bass/percussion, pad, and lead. This builds on the
-hardware-proven three-engine topology; it is not the hardware-validated v2.3.0
-release.
+PRA32-U timbres: bass/percussion, pad, and lead. This hardware-tested
+three-engine topology is packaged as release v2.4.0.
 
 ## Signal path
 
@@ -37,7 +36,7 @@ new pitch replaces only the note in that role. Ratchets retain lane identity.
 The current sequencer supplies at most one simultaneous note per lane.
 Polyphonic and paraphonic PRA32-U paths therefore add no notes here while
 exceeding the RP2040 real-time budget when combined with three engines and pad
-effects. Firmware v2.3.2 exposes only monophonic, legato-with-glide, and legato
+effects. Firmware v2.4.0 exposes only monophonic, legato-with-glide, and legato
 until lane note slots and DSP resource allocation are redesigned together.
 MIDI remains channel 1, or low/pad/lead on channels 1/2/3. RGB radius follows
 one through three simultaneous notes.
@@ -51,9 +50,9 @@ freeze. Each PRA32-U instance renders all of its own oscillators on its assigned
 core. Its upstream internal two-core handshake remains disabled because nesting
 it inside this three-engine scheduler deadlocks bass and pad. The full voice
 paths remain compiled for future scheduling work but are rejected at the live
-parameter boundary in v2.3.2.
+parameter boundary in v2.4.0.
 
-This topology must be tested on a physical Pocket SCION for audio underruns,
-clicking under high pressure, effect-heavy scenes, ratchets, controls, and all
-three notes sounding together. Do not promote this branch to a release until it
-passes [the full hardware checklist](hardware-testing.md).
+Future DSP or scheduling changes still require the complete
+[hardware checklist](hardware-testing.md), especially audio-underrun tests at
+high pressure with effect-heavy scenes, ratchets, controls, and all three notes
+sounding together.
