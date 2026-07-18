@@ -34,26 +34,26 @@
       </section>
       <nav id="tabs" aria-label="Editor sections"></nav>
       <details class="guide panel">
-        <summary>How low articulation and shared effects work</summary>
+        <summary>Editor guide and signal flow</summary>
         <div class="guide-grid">
           <section>
-            <h2>Low-lane mode</h2>
-            <p><strong>Inherit</strong> follows the bank. <strong>Bass</strong> stays pitched, <strong>Percussion</strong> articulates every low event, and <strong>Hybrid</strong> alternates bass and percussion while keeping strong anchors bass-led.</p>
+            <h2>Signal flow</h2>
+            <p>Sensor statistics shape three Euclidean lanes. Motif + scale + root create pitches, low articulation and an optional MIDI chord constrain them, then Bass, Pad, and Lead engines generate the audio.</p>
           </section>
           <section>
-            <h2>Six articulation slots</h2>
-            <p>Each slot selects a drum sound, rhythmic role, weight, level, tune, tone, body/noise, decay, transient, and ratchet response. Weight zero disables a slot.</p>
+            <h2>Three synth tabs</h2>
+            <p>Bass, Pad, and Lead are separate monophonic timbres. Dry Bass and Lead feed the Pad engine's <strong>Shared effects</strong>, so its chorus and delay process the complete mix.</p>
           </section>
           <section>
-            <h2>Musical selection</h2>
-            <p>Anchor, backbeat, offbeat, fill, and free roles bias selection without creating a rigid pattern. The low Euclidean lane still decides when a hit occurs.</p>
+            <h2>Sequence and articulation</h2>
+            <p>Scale, Motif, clock, Euclidean lengths, gates, density, and ratchets define the composition. The low lane can be Bass, Percussion, Hybrid, or inherit the bank, with six editable drum slots.</p>
           </section>
           <section>
-            <h2>Sensor and effects</h2>
-            <p>Sensor influence and Variation animate articulations and Hybrid balance. Chorus and delay under Pad + effects process bass, pad, and lead together and are saved per patch.</p>
+            <h2>Saving and recovery</h2>
+            <p>Knobs audition RAM immediately. Save patch, bank, or globals writes only that ownership scope. Revert loads the saved value; Restore removes the override and returns to the compiled default.</p>
           </section>
         </div>
-        <p class="guide-link"><a href="https://github.com/toonhuysmans/pocket-scion-synth/blob/multi-timbral/docs/low-articulation.md" target="_blank" rel="noreferrer">Read the complete low-articulation guide on GitHub</a></p>
+        <p class="guide-link"><a href="https://github.com/toonhuysmans/pocket-scion-synth/blob/multi-timbral/docs/editor.md" target="_blank" rel="noreferrer">Read the complete editor and signal-flow manual</a> · <a href="https://github.com/toonhuysmans/pocket-scion-synth/blob/multi-timbral/docs/low-articulation.md" target="_blank" rel="noreferrer">Low-articulation reference</a></p>
       </details>
       <section id="editor" class="panel empty">
         Connect a Pocket SCION running compatible editor firmware.
