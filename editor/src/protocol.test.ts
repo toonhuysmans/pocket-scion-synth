@@ -63,4 +63,10 @@ describe("editor schema", () => {
       expect(preset.offsets.every(offset => offset >= -24 && offset <= 24)).toBe(true);
     }
   });
+
+  it("keeps all lane-density controls in the Euclidean section", () => {
+    expect([31, 99, 100].map(id => patchSharedParameters[id].section)).toEqual([
+      "Euclidean rhythm", "Euclidean rhythm", "Euclidean rhythm",
+    ]);
+  });
 });

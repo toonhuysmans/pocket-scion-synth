@@ -271,8 +271,8 @@ function render(): void {
         ? { ...parameter, section: "Shared effects", name: `${parameter.section} ${parameter.name}` }
         : parameter);
     renderParameters(visible, state.lanes[lane], "patch", lane);
-  } else if (activeTab === "sequence") renderParameters(patchSharedParameters.filter(parameter => parameter.id < 35), state.shared, "patch", 3);
-  else if (activeTab === "articulation") renderParameters(patchSharedParameters.filter(parameter => parameter.id >= 35 && parameter.id < 101), state.shared, "patch", 3);
+  } else if (activeTab === "sequence") renderParameters(patchSharedParameters.filter(parameter => parameter.id < 35 || parameter.id === 99 || parameter.id === 100), state.shared, "patch", 3);
+  else if (activeTab === "articulation") renderParameters(patchSharedParameters.filter(parameter => parameter.id >= 35 && parameter.id < 99), state.shared, "patch", 3);
   else if (activeTab === "motion") renderParameters(patchSharedParameters.filter(parameter => parameter.id >= 101), state.shared, "patch", 3);
   else if (activeTab === "bank") renderParameters(bankParameters, state.bank, "bank", 0);
   else if (activeTab === "globals") renderParameters(globalParameters, state.globals, "globals", 0);
