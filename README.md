@@ -87,6 +87,16 @@ engine.
 
 See [docs/controls.md](docs/controls.md) for display feedback and MIDI details.
 
+## Multi-timbral firmware editor
+
+The [v2.4.0 multi-timbral release](https://github.com/toonhuysmans/pocket-scion-synth/releases/tag/multi-tibral)
+includes a browser editor for live USB control of its synthesis, sequencing,
+sensor-routing, rhythm, articulation, MIDI, and global parameters. Patches can
+be saved to the instrument or exchanged as JSON. [Open the Alternative Synth
+Firmware Editor](https://toonhuysmans.github.io/pocket-scion-synth/).
+
+[![Alternative Synth Firmware Editor showing scale and motif controls](docs/images/alternative-synth-firmware-editor.png)](https://toonhuysmans.github.io/pocket-scion-synth/)
+
 ## Documentation
 
 - [Platform and peripherals](docs/platform.md)
