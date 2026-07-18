@@ -36,7 +36,8 @@ respective owner.
 ## Install the compiled firmware
 
 The ready-to-flash build is
-[`releases/pocket_scion_synth_v2.4.0.uf2`](releases/pocket_scion_synth_v2.4.0.uf2).
+[`pocket_scion_synth_v2.4.0.uf2`](https://github.com/toonhuysmans/pocket-scion-synth/releases/download/multi-tibral/pocket_scion_synth_v2.4.0.uf2)
+from the [v2.4.0 multi-timbral release](https://github.com/toonhuysmans/pocket-scion-synth/releases/tag/multi-tibral).
 
 1. Disconnect the Pocket SCION from USB.
 2. Hold its RP2040 boot-selection control while reconnecting USB, or otherwise
