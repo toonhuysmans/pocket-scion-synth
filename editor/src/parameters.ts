@@ -94,6 +94,18 @@ export const patchSharedParameters: Parameter[] = [
   }).flat(),
   { id: 99, name: "Pad density", section: "Euclidean rhythm", min: 8, max: 24, display: (v: number) => `${v - 16}` },
   { id: 100, name: "Lead density", section: "Euclidean rhythm", min: 8, max: 24, display: (v: number) => `${v - 16}` },
+  { id: 101, name: "Breath maximum override", section: "Patch sensor routing", min: 0, max: 127, display: v => v === 0 ? "Use bank" : `${v} / 127` },
+  { id: 102, name: "Pitch-bend response", section: "Patch sensor routing", min: 0, max: 200, display: v => `${v}%` },
+  { id: 103, name: "Ratchet response", section: "Patch sensor routing", min: 0, max: 200, display: v => `${v}%` },
+  { id: 104, name: "Amp decay motion", section: "Patch envelope motion", min: 0, max: 127 },
+  { id: 105, name: "Amp sustain motion", section: "Patch envelope motion", min: 0, max: 127 },
+  { id: 106, name: "Amp release motion", section: "Patch envelope motion", min: 0, max: 127 },
+  { id: 107, name: "Pressure octave span", section: "Patch register", min: 0, max: 2, display: v => `${v} octave${v === 1 ? "" : "s"}` },
+  { id: 108, name: "Expression octave threshold", section: "Patch register", min: 0, max: 63, display: v => v === 0 ? "Off" : `${Math.round(v / 63 * 100)}%` },
+  { id: 109, name: "Cutoff motion", section: "Patch sensor routing", min: 0, max: 200, display: v => `${v}%` },
+  { id: 110, name: "Resonance motion", section: "Patch sensor routing", min: 0, max: 200, display: v => `${v}%` },
+  { id: 111, name: "Morph motion", section: "Patch sensor routing", min: 0, max: 200, display: v => `${v}%` },
+  { id: 112, name: "LFO-rate motion", section: "Patch sensor routing", min: 0, max: 200, display: v => `${v}%` },
 ];
 
 export const bankParameters: Parameter[] = [

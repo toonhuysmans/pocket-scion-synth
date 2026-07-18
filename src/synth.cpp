@@ -229,6 +229,27 @@ struct patch_record_t {
     int8_t density_bias_lead;
 };
 
+// Bass and lead bypass the shared effects engine, so their twelve legacy FX
+// bytes are patch-owned storage. Schema 4 gives those bytes an explicit,
+// editable purpose without growing the flash payload or invalidating older
+// prefix-compatible records. Pad FX remain the audible shared effects.
+constexpr uint8_t patch_behavior_marker = 0xa5u;
+
+enum : uint8_t {
+    PATCH_BREATH_OVERRIDE = 101u,
+    PATCH_BEND_PERCENT = 102u,
+    PATCH_RATCHET_PERCENT = 103u,
+    PATCH_AMP_DECAY_MOTION = 104u,
+    PATCH_AMP_SUSTAIN_MOTION = 105u,
+    PATCH_AMP_RELEASE_MOTION = 106u,
+    PATCH_PROXIMITY_OCTAVES = 107u,
+    PATCH_EXPRESSION_OCTAVE_THRESHOLD = 108u,
+    PATCH_CUTOFF_PERCENT = 109u,
+    PATCH_RESONANCE_PERCENT = 110u,
+    PATCH_MORPH_PERCENT = 111u,
+    PATCH_LFO_RATE_PERCENT = 112u,
+};
+
 struct bank_record_t {
     uint8_t tempo_percent;
     uint8_t breath_max;
@@ -274,7 +295,7 @@ uint8_t editor_led_brightness = 127u;
 
 struct sensor_route_t;
 scene_t make_generated_lane_scene(uint8_t id, uint8_t lane);
-sensor_route_t generated_sensor_route(uint8_t bank, uint8_t program);
+sensor_route_t generated_sensor_route(uint8_t bank);
 void load_active_patch(uint8_t id);
 void load_active_bank(uint8_t bank);
 
@@ -635,7 +656,101 @@ struct sensor_route_t {
     float ratchet_scale;
 };
 
-sensor_route_t generated_sensor_route(uint8_t bank, uint8_t program) {
+static uint8_t &patch_behavior_storage(patch_record_t &record,
+                                       uint8_t parameter) {
+    switch (parameter) {
+        case PATCH_BREATH_OVERRIDE: return record.lane[bass_lane].chorus_rate;
+        case PATCH_BEND_PERCENT: return record.lane[bass_lane].chorus_depth;
+        case PATCH_RATCHET_PERCENT: return record.lane[bass_lane].delay_feedback;
+        case PATCH_AMP_DECAY_MOTION: return record.lane[bass_lane].delay_time;
+        case PATCH_AMP_SUSTAIN_MOTION: return record.lane[bass_lane].delay_mode;
+        case PATCH_AMP_RELEASE_MOTION: return record.lane[upper_lane].chorus_mix;
+        case PATCH_CUTOFF_PERCENT: return record.lane[upper_lane].chorus_depth;
+        case PATCH_RESONANCE_PERCENT: return record.lane[upper_lane].delay_feedback;
+        case PATCH_MORPH_PERCENT: return record.lane[upper_lane].delay_time;
+        default: return record.lane[upper_lane].delay_mode;
+    }
+}
+
+static const uint8_t &patch_behavior_storage(const patch_record_t &record,
+                                             uint8_t parameter) {
+    switch (parameter) {
+        case PATCH_BREATH_OVERRIDE: return record.lane[bass_lane].chorus_rate;
+        case PATCH_BEND_PERCENT: return record.lane[bass_lane].chorus_depth;
+        case PATCH_RATCHET_PERCENT: return record.lane[bass_lane].delay_feedback;
+        case PATCH_AMP_DECAY_MOTION: return record.lane[bass_lane].delay_time;
+        case PATCH_AMP_SUSTAIN_MOTION: return record.lane[bass_lane].delay_mode;
+        case PATCH_AMP_RELEASE_MOTION: return record.lane[upper_lane].chorus_mix;
+        case PATCH_CUTOFF_PERCENT: return record.lane[upper_lane].chorus_depth;
+        case PATCH_RESONANCE_PERCENT: return record.lane[upper_lane].delay_feedback;
+        case PATCH_MORPH_PERCENT: return record.lane[upper_lane].delay_time;
+        default: return record.lane[upper_lane].delay_mode;
+    }
+}
+
+static uint8_t patch_proximity_octaves(const patch_record_t &record) {
+    return record.lane[upper_lane].chorus_rate & 3u;
+}
+
+static uint8_t patch_expression_octave_threshold(
+                                             const patch_record_t &record) {
+    return record.lane[upper_lane].chorus_rate >> 2u;
+}
+
+static void set_patch_octave_behavior(patch_record_t &record,
+                                      uint8_t proximity_octaves,
+                                      uint8_t expression_threshold) {
+    record.lane[upper_lane].chorus_rate = static_cast<uint8_t>(
+        (proximity_octaves & 3u) | ((expression_threshold & 63u) << 2u));
+}
+
+static void build_default_patch_behavior(uint8_t id, patch_record_t *record,
+                                         bool author_envelope_base) {
+    const uint8_t bank = id / scene_count;
+    const uint8_t program = id % scene_count;
+    record->lane[bass_lane].chorus_mix = patch_behavior_marker;
+    patch_behavior_storage(*record, PATCH_BREATH_OVERRIDE) =
+        program == 14u ? 127u : 0u;
+    patch_behavior_storage(*record, PATCH_BEND_PERCENT) =
+        program == 10u ? 125u : 100u;
+    patch_behavior_storage(*record, PATCH_RATCHET_PERCENT) =
+        program == 13u ? 120u : 100u;
+    patch_behavior_storage(*record, PATCH_AMP_DECAY_MOTION) =
+        bank <= 1u && (program == 4u || program == 8u || program == 13u)
+            ? static_cast<uint8_t>(program == 4u ? 48u :
+                                   program == 8u ? 62u : 58u) : 0u;
+    patch_behavior_storage(*record, PATCH_AMP_SUSTAIN_MOTION) =
+        bank <= 1u && (program == 4u || program == 8u || program == 13u)
+            ? static_cast<uint8_t>(program == 4u ? 72u :
+                                   program == 8u ? 58u : 54u) : 0u;
+    patch_behavior_storage(*record, PATCH_AMP_RELEASE_MOTION) =
+        bank <= 1u && (program == 4u || program == 8u || program == 13u)
+            ? static_cast<uint8_t>(program == 4u ? 58u :
+                                   program == 8u ? 62u : 74u) : 0u;
+    if (author_envelope_base && bank <= 1u &&
+        (program == 4u || program == 8u || program == 13u)) {
+        const uint8_t decay = program == 4u ? 42u : program == 8u ? 40u : 34u;
+        const uint8_t sustain = program == 4u ? 38u : program == 8u ? 48u : 18u;
+        const uint8_t release = program == 4u ? 58u : program == 8u ? 32u : 30u;
+        record->lane[bass_lane].amp_decay = adjust_u7(decay, 8);
+        record->lane[bass_lane].amp_sustain = adjust_u7(sustain, 8);
+        record->lane[bass_lane].amp_release = adjust_u7(release, 10);
+        record->lane[middle_lane].amp_decay = decay;
+        record->lane[middle_lane].amp_sustain = sustain;
+        record->lane[middle_lane].amp_release = release;
+        record->lane[upper_lane].amp_decay = adjust_u7(decay, -8);
+        record->lane[upper_lane].amp_sustain = adjust_u7(sustain, -10);
+        record->lane[upper_lane].amp_release = adjust_u7(release, -12);
+    }
+    set_patch_octave_behavior(*record, bank == 4u ? 1u : 2u,
+                              bank == 6u ? 41u : 0u);
+    patch_behavior_storage(*record, PATCH_CUTOFF_PERCENT) = 100u;
+    patch_behavior_storage(*record, PATCH_RESONANCE_PERCENT) = 100u;
+    patch_behavior_storage(*record, PATCH_MORPH_PERCENT) = 100u;
+    patch_behavior_storage(*record, PATCH_LFO_RATE_PERCENT) = 100u;
+}
+
+sensor_route_t generated_sensor_route(uint8_t bank) {
     static constexpr sensor_route_t routes[8] = {
         {  0,   0, 34.0f, 14.0f, 70.0f, 48.0f, 0.55f,  0, 0.85f}, // Legacy
         {127, 127, 34.0f, 14.0f, 42.0f, 24.0f, 1.00f,  0, 1.00f}, // Foundation
@@ -646,11 +761,7 @@ sensor_route_t generated_sensor_route(uint8_t bank, uint8_t program) {
         { 92, 112, 46.0f, 22.0f, 72.0f, 40.0f, 1.10f,  0, 1.08f}, // Spectral
         {127, 127, 56.0f, 30.0f, 92.0f, 56.0f, 1.40f,  2, 1.75f}, // Extreme
     };
-    sensor_route_t result = routes[bank];
-    if (program == 14u) result.breath_max = 127u;
-    if (program == 10u) result.bend_scale *= 1.25f;
-    if (program == 13u) result.ratchet_scale *= 1.20f;
-    return result;
+    return routes[bank];
 }
 
 scene_t make_generated_lane_scene(uint8_t id, uint8_t lane) {
@@ -956,6 +1067,7 @@ void build_default_patch(uint8_t id, patch_record_t *record) {
                                program, record);
     record->density_bias_pad = 0;
     record->density_bias_lead = 0;
+    build_default_patch_behavior(id, record, true);
 }
 
 bool load_patch_override(uint8_t id, patch_record_t *record) {
@@ -970,6 +1082,12 @@ bool load_patch_override(uint8_t id, patch_record_t *record) {
     }
     if (stored_size <= offsetof(patch_record_t, density_bias_lead)) {
         record->density_bias_lead = record->density_bias;
+    }
+    // Schema 1-3 used these bytes as inactive bass/lead effects. Replace only
+    // that inert data with authored schema-4 behavior; all audible values from
+    // the saved patch remain intact.
+    if (record->lane[bass_lane].chorus_mix != patch_behavior_marker) {
+        build_default_patch_behavior(id, record, false);
     }
     return true;
 }
@@ -1002,7 +1120,7 @@ void build_default_bank(uint8_t bank, bank_record_t *record) {
         {100u, 34u, 2u}, {100u, 4u, 18u}, {8u, 30u, 100u},
         {0u, 88u, 92u}, {100u, 0u, 92u},
     };
-    sensor_route_t route = generated_sensor_route(bank, 0u);
+    sensor_route_t route = generated_sensor_route(bank);
     record->tempo_percent = bank_tempo_percent[bank];
     record->breath_max = route.breath_max;
     record->modulation_max = route.modulation_max;
@@ -1048,25 +1166,32 @@ scene_t make_lane_scene(uint8_t id, uint8_t lane) {
     return make_generated_lane_scene(id, lane);
 }
 
-sensor_route_t sensor_route(uint8_t bank, uint8_t program) {
-    sensor_route_t result;
-    if (bank == active_bank_id) {
-        result = {
-            active_bank.breath_max, active_bank.modulation_max,
-            static_cast<float>(active_bank.cutoff_range),
-            static_cast<float>(active_bank.resonance_range),
-            static_cast<float>(active_bank.morph_range),
-            static_cast<float>(active_bank.lfo_rate_range),
-            static_cast<float>(active_bank.bend_percent) / 100.0f,
-            active_bank.density_offset,
-            static_cast<float>(active_bank.ratchet_percent) / 100.0f,
-        };
-    } else {
-        result = generated_sensor_route(bank, 0u);
-    }
-    if (program == 14u) result.breath_max = 127u;
-    if (program == 10u) result.bend_scale *= 1.25f;
-    if (program == 13u) result.ratchet_scale *= 1.20f;
+sensor_route_t sensor_route() {
+    sensor_route_t result = {
+        active_bank.breath_max, active_bank.modulation_max,
+        static_cast<float>(active_bank.cutoff_range),
+        static_cast<float>(active_bank.resonance_range),
+        static_cast<float>(active_bank.morph_range),
+        static_cast<float>(active_bank.lfo_rate_range),
+        static_cast<float>(active_bank.bend_percent) / 100.0f,
+        active_bank.density_offset,
+        static_cast<float>(active_bank.ratchet_percent) / 100.0f,
+    };
+    const uint8_t breath_override = patch_behavior_storage(
+        active_patch, PATCH_BREATH_OVERRIDE);
+    if (breath_override != 0u) result.breath_max = breath_override;
+    result.cutoff_range *= patch_behavior_storage(
+        active_patch, PATCH_CUTOFF_PERCENT) / 100.0f;
+    result.resonance_range *= patch_behavior_storage(
+        active_patch, PATCH_RESONANCE_PERCENT) / 100.0f;
+    result.morph_range *= patch_behavior_storage(
+        active_patch, PATCH_MORPH_PERCENT) / 100.0f;
+    result.lfo_rate_range *= patch_behavior_storage(
+        active_patch, PATCH_LFO_RATE_PERCENT) / 100.0f;
+    result.bend_scale *= patch_behavior_storage(
+        active_patch, PATCH_BEND_PERCENT) / 100.0f;
+    result.ratchet_scale *= patch_behavior_storage(
+        active_patch, PATCH_RATCHET_PERCENT) / 100.0f;
     return result;
 }
 
@@ -1173,12 +1298,14 @@ void apply_scene_to(PRA32_U_Synth<bypass_fx> &target, const scene_t &scene) {
     target.control_change(EG_VEL_SENS, scene.eg_velocity);
     target.control_change(AMP_VEL_SENS, scene.amp_velocity);
     target.control_change(VOICE_ASGN_MODE, scene.voice_assignment);
-    target.control_change(CHORUS_MIX, scene.chorus_mix);
-    target.control_change(CHORUS_RATE, scene.chorus_rate);
-    target.control_change(CHORUS_DEPTH, scene.chorus_depth);
-    target.control_change(DELAY_FEEDBACK, scene.delay_feedback);
-    target.control_change(DELAY_TIME, scene.delay_time);
-    target.control_change(DELAY_MODE, scene.delay_mode);
+    if constexpr (!bypass_fx) {
+        target.control_change(CHORUS_MIX, scene.chorus_mix);
+        target.control_change(CHORUS_RATE, scene.chorus_rate);
+        target.control_change(CHORUS_DEPTH, scene.chorus_depth);
+        target.control_change(DELAY_FEEDBACK, scene.delay_feedback);
+        target.control_change(DELAY_TIME, scene.delay_time);
+        target.control_change(DELAY_MODE, scene.delay_mode);
+    }
     target.control_change(MODULATION, 0);
     target.control_change(BTH_CONTROLLER, 0);
     target.pitch_bend(0, 64);
@@ -1205,16 +1332,23 @@ void lane_control_change(uint8_t lane, uint8_t control, uint8_t value) {
     else upper_engine.control_change(control, value);
 }
 
-void set_live_amp_envelope(uint8_t decay, uint8_t sustain, uint8_t release) {
-    lane_control_change(bass_lane, AMP_DECAY, adjust_u7(decay, 8));
-    lane_control_change(bass_lane, AMP_SUSTAIN, adjust_u7(sustain, 8));
-    lane_control_change(bass_lane, AMP_RELEASE, adjust_u7(release, 10));
-    lane_control_change(middle_lane, AMP_DECAY, decay);
-    lane_control_change(middle_lane, AMP_SUSTAIN, sustain);
-    lane_control_change(middle_lane, AMP_RELEASE, release);
-    lane_control_change(upper_lane, AMP_DECAY, adjust_u7(decay, -8));
-    lane_control_change(upper_lane, AMP_SUSTAIN, adjust_u7(sustain, -10));
-    lane_control_change(upper_lane, AMP_RELEASE, adjust_u7(release, -12));
+void set_live_amp_envelope(float expression, float proximity,
+                           float release_source) {
+    const uint8_t decay_motion = patch_behavior_storage(
+        active_patch, PATCH_AMP_DECAY_MOTION);
+    const uint8_t sustain_motion = patch_behavior_storage(
+        active_patch, PATCH_AMP_SUSTAIN_MOTION);
+    const uint8_t release_motion = patch_behavior_storage(
+        active_patch, PATCH_AMP_RELEASE_MOTION);
+    for (uint8_t lane = 0u; lane < SYNTH_LANE_COUNT; ++lane) {
+        const scene_t &base = active_patch.lane[lane];
+        lane_control_change(lane, AMP_DECAY, clamp_u7(
+            base.amp_decay + static_cast<int>(expression * decay_motion)));
+        lane_control_change(lane, AMP_SUSTAIN, clamp_u7(
+            base.amp_sustain + static_cast<int>(proximity * sustain_motion)));
+        lane_control_change(lane, AMP_RELEASE, clamp_u7(
+            base.amp_release + static_cast<int>(release_source * release_motion)));
+    }
 }
 
 void all_engines_control_change(uint8_t control, uint8_t value) {
@@ -1247,291 +1381,6 @@ struct low_articulation_t {
     float ratchet_scale;
 };
 
-[[maybe_unused]] low_articulation_t prepare_legacy_low_articulation(
-                                             uint8_t mode, uint8_t step,
-                                             uint32_t random,
-                                             float expression,
-                                             float proximity, float spread) {
-    const scene_t base = make_lane_scene(mode, bass_lane);
-    const uint8_t bank = mode / scene_count;
-    const uint8_t program = mode % scene_count;
-    low_articulation_t result = {0, 1.0f, 1.0f};
-
-    if (bank != 3u) {
-        // Every bank gets its own low-role vocabulary. Starting from all base
-        // values prevents a previous noise hit from leaking into the next bank.
-        const uint8_t variant = program & 3u;
-        const uint8_t colour = program >> 2;
-        uint8_t sub_mix = base.sub_mix;
-        uint8_t osc2_wave = base.osc2_wave;
-        uint8_t osc_mix = base.osc_mix;
-        uint8_t filter_mode = base.filter_mode;
-        uint8_t cutoff = clamp_u7(base.cutoff +
-            static_cast<int>(proximity * 12.0f));
-        uint8_t resonance = clamp_u7(base.resonance +
-            static_cast<int>(expression * 10.0f));
-        uint8_t filter_eg = clamp_u7(base.filter_eg +
-            static_cast<int>(expression * 14.0f));
-        uint8_t pitch_env = clamp_u7(base.eg_osc_amt +
-            static_cast<int>(expression * 12.0f));
-        uint8_t pitch_dst = base.eg_osc_dst;
-        uint8_t decay = clamp_u7(base.amp_decay +
-            static_cast<int>(spread * 16.0f));
-        uint8_t sustain = base.amp_sustain;
-        uint8_t release = base.amp_release;
-
-        if (bank == 0u) {  // Legacy: familiar bass, pulse, thump, noisy accent.
-            if (variant == 0u) {
-                sub_mix = adjust_u7(sub_mix, 18); sustain = adjust_u7(sustain, 18);
-                result.gate_scale = 1.20f;
-            } else if (variant == 1u) {
-                decay = adjust_u7(decay, -18); sustain = adjust_u7(sustain, -22);
-                filter_eg = adjust_u7(filter_eg, 20); result.gate_scale = 0.68f;
-            } else if (variant == 2u) {
-                sub_mix = 124u; pitch_env = adjust_u7(pitch_env, 28);
-                pitch_dst = 127u; result.note_offset = -5;
-                result.gate_scale = 0.76f;
-            } else {
-                sub_mix = clamp_u7(52 - static_cast<int>(expression * 34.0f));
-                osc2_wave = 100u; osc_mix = 72u; cutoff = adjust_u7(cutoff, 18);
-                decay = adjust_u7(decay, -16); sustain = adjust_u7(sustain, -28);
-                result.ratchet_scale = 1.18f;
-            }
-        } else if (bank == 1u) {  // Foundation: four balanced reference forms.
-            if (variant == 0u) {  // Round sub bass.
-                sub_mix = adjust_u7(sub_mix, 24); cutoff = adjust_u7(cutoff, -10);
-                sustain = adjust_u7(sustain, 14);
-            } else if (variant == 1u) {  // Filter pluck.
-                filter_eg = adjust_u7(filter_eg, 30); decay = adjust_u7(decay, -14);
-                sustain = adjust_u7(sustain, -26); result.gate_scale = 0.72f;
-            } else if (variant == 2u) {  // Pitch-envelope pulse.
-                pitch_env = adjust_u7(pitch_env, 32); pitch_dst = 127u;
-                result.note_offset = -3; result.ratchet_scale = 1.12f;
-            } else {  // Resonant growl.
-                resonance = adjust_u7(resonance, 24); cutoff = adjust_u7(cutoff, -8);
-                osc_mix = adjust_u7(osc_mix, 18);
-            }
-        } else if (bank == 2u) {  // Organic: mallet, tom, wood, shaker.
-            decay = adjust_u7(decay, 8 + static_cast<int>(colour) * 3);
-            if (variant == 0u) {  // Rounded mallet.
-                sub_mix = 92u; pitch_env = adjust_u7(pitch_env, 18);
-                pitch_dst = 127u; result.gate_scale = 0.86f;
-            } else if (variant == 1u) {  // Skin/tom body.
-                sub_mix = 106u; cutoff = adjust_u7(cutoff, -14);
-                pitch_env = adjust_u7(pitch_env, 28); pitch_dst = 127u;
-                result.note_offset = static_cast<int8_t>(colour * 2u);
-            } else if (variant == 2u) {  // Short wooden knock.
-                resonance = adjust_u7(resonance, 22); decay = adjust_u7(decay, -24);
-                sustain = 0u; release = adjust_u7(release, -16);
-                result.gate_scale = 0.48f;
-            } else {  // Breath/noise shaker.
-                sub_mix = clamp_u7(24 - static_cast<int>(expression * 20.0f));
-                osc2_wave = 100u; osc_mix = 96u; filter_mode = 64u;
-                cutoff = clamp_u7(62 + static_cast<int>(expression * 34.0f));
-                decay = clamp_u7(16 + static_cast<int>(spread * 18.0f));
-                sustain = 0u; release = 14u; result.gate_scale = 0.35f;
-                result.ratchet_scale = 1.34f;
-            }
-        } else if (bank == 4u) {  // Bass & Lead: sustained bass with accents.
-            sub_mix = adjust_u7(sub_mix, 28); cutoff = adjust_u7(cutoff, -12);
-            sustain = adjust_u7(sustain, 20); result.gate_scale = 1.24f;
-            if (variant == 1u) { resonance = adjust_u7(resonance, 20); }
-            else if (variant == 2u) {
-                pitch_env = adjust_u7(pitch_env, 24); pitch_dst = 127u;
-                decay = adjust_u7(decay, -10); result.gate_scale = 0.84f;
-            } else if (variant == 3u) {
-                osc2_wave = 100u; osc_mix = 54u;
-                sub_mix = adjust_u7(sub_mix, -34); resonance = adjust_u7(resonance, 15);
-            }
-            if ((step & 7u) == 0u) result.note_offset = -5;
-            result.ratchet_scale = 0.62f;
-        } else if (bank == 5u) {  // Atmosphere: drone, heartbeat, swell, wind.
-            result.ratchet_scale = 0.30f;
-            if (variant == 0u) {
-                sub_mix = 127u; cutoff = adjust_u7(cutoff, -18);
-                sustain = 122u; release = adjust_u7(release, 24);
-                result.gate_scale = 1.65f; result.note_offset = -12;
-            } else if (variant == 1u) {
-                sub_mix = 120u; pitch_env = adjust_u7(pitch_env, 20);
-                pitch_dst = 127u; decay = adjust_u7(decay, -12);
-                result.gate_scale = 0.82f; result.note_offset = -7;
-            } else if (variant == 2u) {
-                cutoff = adjust_u7(cutoff, -12); sustain = 116u;
-                release = adjust_u7(release, 30); result.gate_scale = 1.48f;
-            } else {
-                sub_mix = 8u; osc2_wave = 100u; osc_mix = 106u;
-                filter_mode = 64u; cutoff = clamp_u7(44 +
-                    static_cast<int>(expression * 46.0f));
-                decay = adjust_u7(decay, 18); sustain = adjust_u7(sustain, -18);
-                release = adjust_u7(release, 28); result.gate_scale = 1.30f;
-            }
-        } else if (bank == 6u) {  // Spectral: resonant and metallic low objects.
-            resonance = adjust_u7(resonance, 22 + static_cast<int>(colour) * 3);
-            pitch_env = adjust_u7(pitch_env, 20); pitch_dst = 127u;
-            result.note_offset = static_cast<int8_t>(colour * 3u);
-            if (variant == 0u) {
-                sub_mix = 82u; cutoff = adjust_u7(cutoff, -8);
-            } else if (variant == 1u) {
-                osc2_wave = 100u; osc_mix = 86u; cutoff = adjust_u7(cutoff, 15);
-                decay = adjust_u7(decay, -12);
-            } else if (variant == 2u) {
-                sub_mix = 18u; osc2_wave = 100u; osc_mix = 104u;
-                filter_mode = 64u; cutoff = adjust_u7(cutoff, 24);
-                sustain = 0u; result.gate_scale = 0.52f;
-            } else {
-                filter_mode = 64u; cutoff = adjust_u7(cutoff, 8);
-                resonance = 118u; decay = adjust_u7(decay, 10);
-                result.ratchet_scale = 1.26f;
-            }
-        } else {  // Extreme: bounded random impact/noise mutations.
-            int motion = static_cast<int>((random >> 16) & 63u) - 31;
-            sub_mix = (random & 1u) ? 124u : 4u;
-            osc2_wave = 100u; osc_mix = clamp_u7(52 + motion);
-            filter_mode = (random & 2u) ? 64u : 0u;
-            cutoff = clamp_u7(base.cutoff + motion);
-            resonance = clamp_u7(90 + static_cast<int>((random >> 23) & 31u));
-            pitch_env = clamp_u7(82 + static_cast<int>((random >> 8) & 45u));
-            pitch_dst = 127u; decay = clamp_u7(12 +
-                static_cast<int>((random >> 4) & 63u));
-            sustain = (variant == 0u) ? 36u : 0u;
-            release = clamp_u7(10 + static_cast<int>((random >> 12) & 47u));
-            result.note_offset = static_cast<int8_t>((random & 4u) ? 12 : -12);
-            result.gate_scale = 0.42f + spread * 0.72f;
-            result.ratchet_scale = 1.30f + expression * 0.55f;
-        }
-
-        lane_control_change(bass_lane, MIXER_SUB_OSC, sub_mix);
-        lane_control_change(bass_lane, OSC_2_WAVE, osc2_wave);
-        lane_control_change(bass_lane, MIXER_OSC_MIX, osc_mix);
-        lane_control_change(bass_lane, FILTER_MODE, filter_mode);
-        lane_control_change(bass_lane, FILTER_CUTOFF, cutoff);
-        lane_control_change(bass_lane, FILTER_RESO, resonance);
-        lane_control_change(bass_lane, FILTER_EG_AMT, filter_eg);
-        lane_control_change(bass_lane, EG_OSC_AMT, pitch_env);
-        lane_control_change(bass_lane, EG_OSC_DST, pitch_dst);
-        lane_control_change(bass_lane, AMP_DECAY, decay);
-        lane_control_change(bass_lane, AMP_SUSTAIN, sustain);
-        lane_control_change(bass_lane, AMP_RELEASE, release);
-        return result;
-    }
-
-    // One Percussive patch can form an actual kit. The low two program bits
-    // choose its rhythmic bias; the high two choose a clearly different kit
-    // colour. Sensor variation still moves the balance within that identity.
-    const uint8_t roll = static_cast<uint8_t>(random & 127u);
-    const uint8_t family = program >> 2;
-    const uint8_t variant = program & 3u;
-    const uint8_t hat_threshold = clamp_u7(
-        10 + static_cast<int>(variant) * 15 +
-        static_cast<int>(expression * 58.0f));
-    enum { kick, tom, snare, hat } voice = tom;
-    if (variant == 0u) {  // Grounded: kick-led with tom fills.
-        if ((step & 3u) == 0u) voice = kick;
-        else if ((step & 7u) == 6u && roll < 84u) voice = snare;
-        else if (roll < hat_threshold) voice = hat;
-    } else if (variant == 1u) {  // Tribal: tom-led, sparse snare/hat.
-        if ((step & 7u) == 0u) voice = kick;
-        else if ((step & 3u) == 2u && roll < 48u) voice = snare;
-        else if (roll < (hat_threshold / 2u)) voice = hat;
-    } else if (variant == 2u) {  // Backbeat: kick/snare grid.
-        if ((step & 7u) == 0u) voice = kick;
-        else if ((step & 3u) == 2u) voice = snare;
-        else if (roll < hat_threshold) voice = hat;
-    } else {  // Kinetic: hat-led with one anchor kick and backbeat snaps.
-        if ((step & 15u) == 0u) voice = kick;
-        else if ((step & 7u) == 6u && roll < 92u) voice = snare;
-        else if (roll < static_cast<uint8_t>(hat_threshold + 24u)) voice = hat;
-    }
-
-    uint8_t sub_mix = 96u;
-    uint8_t osc2_wave = 100u;
-    uint8_t osc_mix = 34u;
-    uint8_t filter_mode = 0u;
-    uint8_t cutoff = clamp_u7(34 + static_cast<int>(proximity * 18.0f));
-    uint8_t resonance = 30u;
-    uint8_t pitch_env = clamp_u7(82 + static_cast<int>(expression * 25.0f));
-    uint8_t decay = clamp_u7(42 + static_cast<int>(spread * 20.0f));
-    uint8_t sustain = 8u;
-    uint8_t release = 26u;
-
-    if (voice == kick) {
-        sub_mix = 124u; osc_mix = 22u; cutoff = 24u; resonance = 22u;
-        pitch_env = clamp_u7(100 + static_cast<int>(expression * 20.0f));
-        decay = clamp_u7(34 + static_cast<int>(proximity * 18.0f));
-        sustain = 0u; release = 22u;
-        result.note_offset = -5; result.gate_scale = 0.82f;
-        result.ratchet_scale = 0.35f;
-    } else if (voice == snare) {
-        sub_mix = 16u; osc_mix = 82u; filter_mode = 64u;
-        cutoff = clamp_u7(38 + static_cast<int>(expression * 24.0f));
-        resonance = 34u; pitch_env = 58u;
-        decay = clamp_u7(34 + static_cast<int>(spread * 18.0f));
-        sustain = 0u; release = 28u;
-        result.note_offset = 5; result.gate_scale = 0.72f;
-        result.ratchet_scale = 0.70f;
-    } else if (voice == hat) {
-        sub_mix = 0u; osc_mix = 112u; filter_mode = 64u;
-        cutoff = clamp_u7(78 + static_cast<int>(expression * 28.0f));
-        resonance = 16u; pitch_env = 40u;
-        decay = clamp_u7(12 + static_cast<int>(spread * 12.0f));
-        sustain = 0u; release = 12u;
-        result.note_offset = 12; result.gate_scale = 0.36f;
-        result.ratchet_scale = 1.55f;
-    } else {
-        result.note_offset = static_cast<int8_t>((random >> 9) % 5u);
-        result.gate_scale = 0.92f;
-        result.ratchet_scale = 0.75f;
-    }
-
-    // Four kit families make adjacent groups of four patches audibly distinct
-    // even when they happen to select the same drum voice.
-    if (family == 0u) {  // Deep/organic: low, round and comparatively loose.
-        cutoff = adjust_u7(cutoff, -8);
-        resonance = adjust_u7(resonance, -5);
-        decay = adjust_u7(decay, 10);
-        release = adjust_u7(release, 6);
-        if (voice == kick || voice == tom) result.note_offset -= 5;
-        result.ratchet_scale *= 0.78f;
-    } else if (family == 1u) {  // Tight/electronic: short and pitchy.
-        cutoff = adjust_u7(cutoff, 13);
-        pitch_env = adjust_u7(pitch_env, 15);
-        decay = adjust_u7(decay, -11);
-        release = adjust_u7(release, -7);
-        result.note_offset += 4;
-        result.gate_scale *= 0.72f;
-    } else if (family == 2u) {  // Metallic/noise: brighter noisy transients.
-        if (voice != kick) sub_mix = adjust_u7(sub_mix, -28);
-        osc_mix = adjust_u7(osc_mix, 18);
-        cutoff = adjust_u7(cutoff, 18);
-        resonance = adjust_u7(resonance, 13);
-        result.note_offset += 9;
-        result.ratchet_scale *= 1.22f;
-    } else {  // Mutant: wide, irregular extremes kept inside safe bounds.
-        int random_motion = static_cast<int>((random >> 16) & 31u) - 15;
-        cutoff = adjust_u7(cutoff, random_motion);
-        resonance = adjust_u7(resonance, 18);
-        decay = adjust_u7(decay, static_cast<int>((random >> 21) & 15u) - 7);
-        if (voice != kick) sub_mix = adjust_u7(sub_mix, -18);
-        result.note_offset = static_cast<int8_t>(
-            static_cast<int>(result.note_offset) +
-            ((random & 0x1000u) ? 12 : -7));
-        result.ratchet_scale *= 1.42f;
-    }
-
-    lane_control_change(bass_lane, MIXER_SUB_OSC, sub_mix);
-    lane_control_change(bass_lane, OSC_2_WAVE, osc2_wave);
-    lane_control_change(bass_lane, MIXER_OSC_MIX, osc_mix);
-    lane_control_change(bass_lane, FILTER_MODE, filter_mode);
-    lane_control_change(bass_lane, FILTER_CUTOFF, cutoff);
-    lane_control_change(bass_lane, FILTER_RESO, resonance);
-    lane_control_change(bass_lane, EG_OSC_AMT, pitch_env);
-    lane_control_change(bass_lane, EG_OSC_DST, 127u);
-    lane_control_change(bass_lane, AMP_DECAY, decay);
-    lane_control_change(bass_lane, AMP_SUSTAIN, sustain);
-    lane_control_change(bass_lane, AMP_RELEASE, release);
-    return result;
-}
-
 uint8_t articulation_role_strength(uint8_t role, uint8_t step) {
     bool match = false;
     switch (role) {
@@ -1547,16 +1396,16 @@ uint8_t articulation_role_strength(uint8_t role, uint8_t step) {
 void restore_low_base(const scene_t &base, float expression,
                       float proximity, float sensor_depth) {
     const float depth = sensor_depth / 127.0f;
+    const sensor_route_t route = sensor_route();
     lane_control_change(bass_lane, MIXER_SUB_OSC, base.sub_mix);
     lane_control_change(bass_lane, OSC_2_WAVE, base.osc2_wave);
     lane_control_change(bass_lane, MIXER_OSC_MIX, base.osc_mix);
     lane_control_change(bass_lane, FILTER_MODE, base.filter_mode);
     lane_control_change(bass_lane, FILTER_CUTOFF, clamp_u7(
-        base.cutoff + static_cast<int>(proximity *
-            active_bank.cutoff_range * depth)));
+        base.cutoff + static_cast<int>(proximity * route.cutoff_range * depth)));
     lane_control_change(bass_lane, FILTER_RESO, clamp_u7(
         base.resonance + static_cast<int>(expression *
-            active_bank.resonance_range * depth)));
+            route.resonance_range * depth)));
     lane_control_change(bass_lane, FILTER_EG_AMT, base.filter_eg);
     lane_control_change(bass_lane, EG_OSC_AMT, base.eg_osc_amt);
     lane_control_change(bass_lane, EG_OSC_DST, base.eg_osc_dst);
@@ -2195,11 +2044,9 @@ static void process_sensor_state(synth_t *synth, const sensor_stats_t *stats,
     if (synth->raw_mode) return;
 
     const uint8_t mode = synth_program_id(synth);
-    const uint8_t patch = mode % scene_count;
-    const uint8_t bank = mode / scene_count;
     const bool pitch_bend_enabled = synth->pitch_bend_enabled != 0u;
-    const scene_t scene = make_scene(mode);
-    const sensor_route_t route = sensor_route(bank, patch);
+    const scene_t &scene = active_patch.lane[middle_lane];
+    const sensor_route_t route = sensor_route();
 
     if (fresh_window) {
         float bend_target = 0.0f;
@@ -2224,26 +2071,18 @@ static void process_sensor_state(synth_t *synth, const sensor_stats_t *stats,
     all_engines_control_change(BTH_CONTROLLER, breath);
     all_engines_control_change(MODULATION, modulation);
 
-    // The three transient-oriented programs span a wider envelope range under
-    // the plant. Values are deliberately distinct rather than sharing one
-    // generic movement-to-length mapping.
-    if (bank <= 1u && patch == 4u) {  // Glass: proximity blooms sustain and release.
-        set_live_amp_envelope(
-            clamp_u7(42 + static_cast<int>(synth->sensor_expression * 48.0f)),
-            clamp_u7(38 + static_cast<int>(synth->sensor_proximity * 72.0f)),
-            clamp_u7(58 + static_cast<int>(synth->sensor_proximity * 58.0f)));
-    } else if (bank <= 1u && patch == 8u) {  // Acid: stab to tied phrase.
-        set_live_amp_envelope(
-            clamp_u7(40 + static_cast<int>(synth->sensor_expression * 62.0f)),
-            clamp_u7(48 + static_cast<int>(synth->sensor_expression * 58.0f)),
-            clamp_u7(32 + static_cast<int>(synth->sensor_proximity * 62.0f)));
-    } else if (bank <= 1u && patch == 13u) {  // Percussion: spread grows tail.
-        float spread_envelope = clampf(
-            static_cast<float>(stats->delta_us) / 60000.0f, 0.0f, 1.0f);
-        set_live_amp_envelope(
-            clamp_u7(34 + static_cast<int>(synth->sensor_proximity * 58.0f)),
-            clamp_u7(18 + static_cast<int>(synth->sensor_expression * 54.0f)),
-            clamp_u7(30 + static_cast<int>(spread_envelope * 74.0f)));
+    const uint8_t decay_motion = patch_behavior_storage(
+        active_patch, PATCH_AMP_DECAY_MOTION);
+    const uint8_t sustain_motion = patch_behavior_storage(
+        active_patch, PATCH_AMP_SUSTAIN_MOTION);
+    const uint8_t release_motion = patch_behavior_storage(
+        active_patch, PATCH_AMP_RELEASE_MOTION);
+    if (decay_motion != 0u || sustain_motion != 0u || release_motion != 0u) {
+        const float release_source = synth->sensor_proximity * 0.65f +
+            clampf(static_cast<float>(stats->delta_us) / 60000.0f,
+                   0.0f, 1.0f) * 0.35f;
+        set_live_amp_envelope(synth->sensor_expression,
+                              synth->sensor_proximity, release_source);
     }
     float base_bend_span = scene.pitch_bend_range >= 24u ? 4095.0f : 1536.0f;
     int bend_span = static_cast<int>(base_bend_span * route.bend_scale);
@@ -2330,10 +2169,16 @@ static void process_sensor_state(synth_t *synth, const sensor_stats_t *stats,
     }
     if (!any_hit) return;
 
-    int octave = synth->sensor_proximity > 0.72f ? 2 :
-                 synth->sensor_proximity > 0.38f ? 1 : 0;
-    if (bank == 4u && octave > 0) --octave;
-    if (bank == 6u && synth->sensor_expression > 0.65f && octave < 2) ++octave;
+    const uint8_t octave_span = patch_proximity_octaves(active_patch);
+    int octave = static_cast<int>(synth->sensor_proximity *
+                                  (static_cast<float>(octave_span) + 0.999f));
+    if (octave > octave_span) octave = octave_span;
+    const uint8_t expression_threshold =
+        patch_expression_octave_threshold(active_patch);
+    if (expression_threshold != 0u && octave < 2 &&
+        synth->sensor_expression * 63.0f >= expression_threshold) {
+        ++octave;
+    }
     unsigned motif_step = (step + bar * 3u) & 15u;
     unsigned melody_degree = editor_motif_degree(
         mode, static_cast<uint8_t>(motif_step));
@@ -2578,6 +2423,13 @@ static bool editor_get_patch(uint8_t target, uint8_t lane, uint8_t parameter,
     }
     if (lane < 3u) {
         if (parameter >= sizeof(scene_t)) return false;
+        // Schema 1-3 editors read all 47 lane bytes. Bass/Lead FX storage is
+        // patch behavior in schema 4, so preserve compatibility without
+        // exposing or leaking the packed representation.
+        if (lane != middle_lane && parameter >= 41u) {
+            *value = 0u;
+            return true;
+        }
         *value = reinterpret_cast<const uint8_t *>(&record->lane[lane])[parameter];
         return true;
     }
@@ -2613,6 +2465,18 @@ static bool editor_get_patch(uint8_t target, uint8_t lane, uint8_t parameter,
         }
         if (parameter == 100u) {
             *value = static_cast<uint16_t>(record->density_bias_lead + 16);
+            return true;
+        }
+        if (parameter == PATCH_PROXIMITY_OCTAVES) {
+            *value = patch_proximity_octaves(*record);
+            return true;
+        }
+        if (parameter == PATCH_EXPRESSION_OCTAVE_THRESHOLD) {
+            *value = patch_expression_octave_threshold(*record);
+            return true;
+        }
+        if (parameter >= PATCH_BREATH_OVERRIDE) {
+            *value = patch_behavior_storage(*record, parameter);
             return true;
         }
         const uint8_t relative = static_cast<uint8_t>(parameter - 39u);
@@ -2717,6 +2581,10 @@ bool synth_editor_set(synth_t *synth, uint8_t scope, uint8_t target,
         }
         if (lane < 3u) {
             if (parameter >= sizeof(scene_t) || value > 127u) return false;
+            // Old JSON/editor clients write the former dry-lane FX fields.
+            // Acknowledge and ignore those writes so they cannot corrupt the
+            // schema-4 patch behavior stored in the same bytes.
+            if (lane != middle_lane && parameter >= 41u) return true;
             if (parameter == 18u && value != 2u && value != 4u && value != 5u) {
                 return false;
             }
@@ -2776,6 +2644,29 @@ bool synth_editor_set(synth_t *synth, uint8_t scope, uint8_t target,
                 active_patch.density_bias_pad = static_cast<int8_t>(value) - 16;
             } else if (parameter == 100u && value >= 8u && value <= 24u) {
                 active_patch.density_bias_lead = static_cast<int8_t>(value) - 16;
+            } else if (parameter == PATCH_PROXIMITY_OCTAVES && value <= 2u) {
+                set_patch_octave_behavior(active_patch,
+                    static_cast<uint8_t>(value),
+                    patch_expression_octave_threshold(active_patch));
+            } else if (parameter == PATCH_EXPRESSION_OCTAVE_THRESHOLD &&
+                       value <= 63u) {
+                set_patch_octave_behavior(active_patch,
+                    patch_proximity_octaves(active_patch),
+                    static_cast<uint8_t>(value));
+            } else if (parameter >= PATCH_BREATH_OVERRIDE &&
+                       parameter < SYNTH_EDITOR_PATCH_SHARED_COUNT) {
+                const bool percentage = parameter == PATCH_BEND_PERCENT ||
+                    parameter == PATCH_RATCHET_PERCENT ||
+                    parameter >= PATCH_CUTOFF_PERCENT;
+                if (value > (percentage ? 200u : 127u)) return false;
+                patch_behavior_storage(active_patch, parameter) =
+                    static_cast<uint8_t>(value);
+                if (parameter >= PATCH_AMP_DECAY_MOTION &&
+                    parameter <= PATCH_AMP_RELEASE_MOTION && value == 0u) {
+                    for (uint8_t voice = 0u; voice < SYNTH_LANE_COUNT; ++voice) {
+                        apply_active_lane(voice);
+                    }
+                }
             } else if (parameter >= 39u && parameter < 99u) {
                 const uint8_t relative = static_cast<uint8_t>(parameter - 39u);
                 articulation_slot_t &slot =

@@ -143,7 +143,7 @@ before moving away from extensive edits.
 
 | Owner | Stored values | Save action |
 |---|---|---|
-| Patch | Three synth snapshots, sequence, scale, motif, rhythm, low mode, and six articulation slots | Save patch |
+| Patch | Three synth snapshots, sequence, scale, motif, rhythm, motion/register routing, low mode, and six articulation slots | Save patch |
 | Bank | Tempo/gate multipliers, sensor routing, density/ratchet response, lane motion, LED colour, inherited low role | Save bank settings |
 | Globals | Root, sensitivity, volume, duration, pitch-bend preference, MIDI channel mode, LED brightness | Save globals |
 | Live sensor | Four read-only normalized measurements | Never saved |
@@ -194,6 +194,22 @@ families but is a separate snapshot and engine. It commonly uses brighter
 filtering, quicker envelopes, more LFO motion, and stronger sensor response.
 Like Bass, it feeds the shared effects stage dry and therefore has no effective
 per-lane chorus or delay controls.
+
+## Patch motion tab
+
+This tab contains every patch-local interaction value that previously required
+a compiled scene-specific rule:
+
+| Section | Parameters |
+|---|---|
+| Patch sensor routing | Breath maximum override, pitch-bend response, ratchet response, and cutoff/resonance/morph/LFO-rate motion percentages. |
+| Patch envelope motion | Sensor depth for amplifier decay, sustain, and release. Each lane moves from its own stored envelope values. |
+| Patch register | Pressure-driven octave span and an optional expression threshold for one additional octave. |
+
+The bank route remains a shared starting point for sixteen patches. Patch
+percentages scale that route; the breath override is either **Use bank** or an
+explicit maximum. This makes two patches in one bank behave differently
+without any firmware branch on their patch numbers.
 
 ### Voice modes
 
@@ -335,8 +351,8 @@ become persistent. Bank import asks for confirmation, writes all sixteen target
 slots, and commits the bank settings because only one unsaved patch can occupy
 device RAM.
 
-New exports use JSON version 3. Version 1 and 2 files remain importable; new
-fields retain compiled or migrated defaults. Scale offsets use `semitones + 24`, density uses
+New exports use JSON version 4. Version 1, 2, and 3 files remain importable;
+new fields retain compiled or migrated defaults. Scale offsets use `semitones + 24`, density uses
 `offset + 16`, and all other values follow the ranges visible in the editor.
 Unknown schemas, invalid values, and incorrect array sizes are rejected before
 transmission.

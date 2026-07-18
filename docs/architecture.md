@@ -44,6 +44,12 @@ melodic spread, velocity, patch modulation, and ratchet probability. Banks
 provide different musical directions rather than merely changing oscillator
 waveforms.
 
+Bank and patch numbers are selectors only in the performance path. They load
+an authored patch record and bank record; synthesis and sequencing do not use
+bank/program-number special cases after loading. The compiled factory builders
+may use those numbers to construct defaults, but every resulting musical
+choice is stored, addressable through the editor protocol, and exportable.
+
 Held USB MIDI notes build a transient pitch-class constraint after scale,
 motif, octave, and low-lane articulation. Up to seven distinct pitch classes
 are captured over 50 ms and then atomically replace the previous latched chord.
@@ -68,8 +74,9 @@ The vendored PRA32-U core provides two oscillators, sub/noise mixing, resonant
 multimode filters, per-voice envelopes, multiple LFO waveforms, portamento,
 chorus, stereo delay, and modulation routing. Each part uses the synthesis and
 modulation sections. The scene builder in
-[`src/synth.cpp`](../src/synth.cpp) defines 128 patches across eight banks and
-maps live sensor statistics into patch-appropriate parameter ranges. The low
+[`src/synth.cpp`](../src/synth.cpp) defines the factory values for 128 patches
+across eight banks. At runtime the loaded bank route and patch-owned motion
+parameters map live sensor statistics into editable ranges. The low
 part ranges from sub bass and tuned percussion to genuine filtered noise for
 snares and hats. The pad supplies harmonic body and owns the patch-shared
 chorus/delay: dry bass and lead signals feed that single effects stage. The

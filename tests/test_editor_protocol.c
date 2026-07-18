@@ -94,6 +94,7 @@ int main(void) {
     assert(response[10] == 0u && response[11] == 1u);  // 128 patches.
     assert(response[12] == 8u);
     assert(response[13] == SYNTH_EDITOR_SCENE_PARAMETER_COUNT);
+    assert(response[14] == SYNTH_EDITOR_PATCH_SHARED_COUNT);
 
     const uint8_t select[] = {42u};
     send_request(0x02u, 8u, select, sizeof(select));

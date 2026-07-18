@@ -109,8 +109,22 @@ discrete mode. The scene builder sets the following 47 fields.
 | Shared delay | feedback, time, mode | Add stereo or ping-pong repeats to the complete three-part mix. Stored in the pad snapshot. |
 
 The bass and lead PRA32-U instances bypass effects and feed the pad instance's
-chorus/delay stage. Their packed snapshots retain unused FX bytes for storage
-compatibility, but the editor exposes only the effective shared controls.
+chorus/delay stage. Schema 4 reuses their twelve formerly inactive FX bytes for
+the exposed patch-motion controls below. The record remains 236 bytes, while
+the pad snapshot continues to own the six audible shared-effect values.
+
+### Patch motion parameters
+
+| Section | Parameters | Function |
+|---|---|---|
+| Sensor routing | Breath override; pitch-bend and ratchet response; cutoff, resonance, morph, and LFO-rate motion | Refines the bank interaction route for this patch. Zero breath override inherits the bank maximum; motion responses are percentages. |
+| Envelope motion | Amplifier decay, sustain, and release motion | Adds sensor-driven movement to each lane's own stored amplifier envelope. Zero keeps that stage static. |
+| Register | Pressure octave span; expression octave threshold | Controls sensor transposition. A zero expression threshold disables its extra octave. |
+
+These values replace all former scene-number and bank-number exceptions in the
+performance path. Bank and patch IDs now only select records. Factory builders
+still use IDs to author initial values, exactly as a preset file would, but the
+resulting values can all be edited and saved.
 
 ### Low-articulation parameters
 
@@ -172,10 +186,11 @@ multipliers.
 | 6 Spectral | 92 | 112 | 46 | 22 | 72 | 40 | 1.10 | 0 | 1.08 |
 | 7 Extreme | 127 | 127 | 56 | 30 | 92 | 56 | 1.40 | +2 | 1.75 |
 
-Scene 15 always permits full breath. Scene 11 increases bend response by 25%,
-and scene 14 increases ratchet response by 20%. Foundation/Legacy scenes 5, 9,
-and 14 also live-modulate amplifier decay, sustain, and release to prevent
-their transient contours from remaining uniformly short.
+The compiled defaults express the former special cases as ordinary patch
+values: scene 15 starts with a full-breath override, scene 11 starts at 125%
+bend response, and scene 14 starts at 120% ratchet response. The relevant
+Foundation/Legacy transient scenes start with non-zero decay, sustain, and
+release motion. None of these behaviours depends on scene number after load.
 
 ## Sequencer and performance parameters
 

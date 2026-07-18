@@ -133,5 +133,5 @@ hold one timbral extreme for a long time.
 The expanded patch record remains inside one 256-byte flash journal page.
 Firmware loads older prefix-compatible records over new compiled defaults, so
 previously saved synthesis and sequence parameters are retained while new
-articulation fields receive safe defaults. Editor JSON version 3 contains the
-current controls; version 1 and 2 patch and bank files remain importable.
+articulation fields receive safe defaults. Editor JSON version 4 contains the
+current controls; version 1, 2, and 3 patch and bank files remain importable.

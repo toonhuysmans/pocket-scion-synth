@@ -88,6 +88,12 @@ where earlier builds exposed clicking.
   balance and sensor influence rise, without clicks or stuck notes.
 - Check Foundation/Legacy Glass Pluck, Acid Teeth, and Pitch-envelope
   Percussion under low and high sensor activity.
+- In Patch motion, verify breath override, bend/ratchet response, all four
+  timbre-motion percentages, three envelope depths, and both register controls
+  are audible and survive Save patch plus reboot.
+- Copy the same parameter values between two patch positions and confirm their
+  runtime sensor/envelope/register behaviour matches; patch number itself must
+  not change the result.
 - Confirm patch changes and MIDI-mode changes send note-offs and leave no stuck
   voices.
 - Send USB MIDI chords containing one through seven distinct pitch classes.

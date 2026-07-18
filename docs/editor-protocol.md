@@ -51,12 +51,17 @@ Scopes are patch `0`, bank `1`, global `2`, and read-only live sensor `3`.
 - Patch targets are 0–127. Lanes 0, 1, and 2 address the 47 packed scene
   parameters in the order documented in
   [Banks and parameters](banks-and-parameters.md#patch-parameters). Lane 3
-  addresses 101 shared fields: scale 0–6, motif 7–22, BPM 23, Euclidean lengths
+  addresses 113 shared fields: scale 0–6, motif 7–22, BPM 23, Euclidean lengths
   24–26, swing 27, gates 28–30, Bass density bias 31, ratchet depths 32–34,
   low-role mode/balance/sensor/variation 35–38, and six ten-parameter
   articulation slots at 39–98. Each slot exposes algorithm, role, weight,
   level, tune, tone, noise, decay, transient, and ratchet response. Pad and
-  Lead density biases are 99 and 100.
+  Lead density biases are 99 and 100. Patch-local motion parameters are
+  breath override 101, bend response 102, ratchet response 103, amp envelope
+  motion 104–106, pressure octave span 107, expression octave threshold 108,
+  and cutoff/resonance/morph/LFO-rate motion 109–112. Bass and Lead lane
+  parameters 41–46 are unavailable because their packed storage belongs to
+  these lane-3 parameters; only Pad lane 1 exposes the effective shared FX.
 - Bank targets are 0–7. Parameters are tempo, breath maximum, modulation
   maximum, cutoff range, resonance range, morph range, LFO-rate range, bend
   percent, biased density offset, ratchet percent, gate percent, and motion
