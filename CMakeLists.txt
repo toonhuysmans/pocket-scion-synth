@@ -35,7 +35,7 @@ add_executable(pocket_scion_synth
 )
 
 pico_set_program_name(pocket_scion_synth "Pocket SCION PRA32-U")
-pico_set_program_version(pocket_scion_synth "2.4.0")
+pico_set_program_version(pocket_scion_synth "2.5.0")
 pico_set_program_description(pocket_scion_synth "Bass/percussion, pad and lead PRA32-U synthesizer")
 pico_set_program_url(pocket_scion_synth "https://github.com/toonhuysmans/pocket-scion-synth")
 

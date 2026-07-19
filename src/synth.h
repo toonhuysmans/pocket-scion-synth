@@ -13,6 +13,8 @@
 #define SYNTH_EDITOR_SCOPE_BANK 1u
 #define SYNTH_EDITOR_SCOPE_GLOBAL 2u
 #define SYNTH_EDITOR_SCOPE_SENSOR 3u
+#define SYNTH_EDITOR_SCOPE_FACTORY_PATCH 4u
+#define SYNTH_EDITOR_SCOPE_FACTORY_BANK 5u
 #define SYNTH_EDITOR_SCENE_PARAMETER_COUNT 47u
 #define SYNTH_EDITOR_PATCH_SHARED_COUNT 113u
 #define SYNTH_EDITOR_BANK_PARAMETER_COUNT 19u
@@ -112,14 +114,14 @@ void synth_sensor_window(synth_t *synth, const sensor_stats_t *stats);
 void synth_sensor_tick(synth_t *synth, bool input_active);
 void synth_render(synth_t *synth, uint32_t *stereo_frames, uint32_t frame_count);
 void synth_service(synth_t *synth);
-bool synth_editor_select(synth_t *synth, uint8_t patch_id);
-bool synth_editor_get(const synth_t *synth, uint8_t scope, uint8_t target,
+bool synth_editor_select(synth_t *synth, uint16_t patch_id);
+bool synth_editor_get(const synth_t *synth, uint8_t scope, uint16_t target,
                       uint8_t lane, uint8_t parameter, uint16_t *value);
-bool synth_editor_set(synth_t *synth, uint8_t scope, uint8_t target,
+bool synth_editor_set(synth_t *synth, uint8_t scope, uint16_t target,
                       uint8_t lane, uint8_t parameter, uint16_t value);
-bool synth_editor_commit(const synth_t *synth, uint8_t scope, uint8_t target);
-bool synth_editor_revert(synth_t *synth, uint8_t scope, uint8_t target);
-bool synth_editor_restore(synth_t *synth, uint8_t scope, uint8_t target);
+bool synth_editor_commit(const synth_t *synth, uint8_t scope, uint16_t target);
+bool synth_editor_revert(synth_t *synth, uint8_t scope, uint16_t target);
+bool synth_editor_restore(synth_t *synth, uint8_t scope, uint16_t target);
 
 #ifdef __cplusplus
 }

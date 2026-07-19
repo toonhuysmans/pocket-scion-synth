@@ -49,7 +49,7 @@ When `picotool` is available:
 picotool info -a build/pocket_scion_synth.uf2
 ```
 
-The release should report version `2.4.0`, board `pocket_scion`, and RP2040
+The development build should report version `2.5.0`, board `pocket_scion`, and RP2040
 family metadata.
 
 ## Flashing

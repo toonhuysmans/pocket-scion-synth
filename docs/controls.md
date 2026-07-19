@@ -77,7 +77,9 @@ Repeated pitches may be tied into longer notes rather than retriggered.
 
 These messages allow an external synth, DAW, or visual system to follow the
 same plant-driven movement as the internal synth. Standard Bank Select and
-Program Change messages identify the eight banks and sixteen patches per bank.
+Program Change messages identify sixteen banks with sixteen patches per bank.
+Bank Select CC0 plus Program Change is authoritative across the complete
+library; legacy combined-patch CC23 remains limited to banks 0–7.
 
 Raw Output Mode produces the sensor pulse train as audio; it does not send raw
 sensor pulses over MIDI, and generated MIDI notes stop while raw mode is active.

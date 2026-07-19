@@ -19,7 +19,7 @@ respective owner.
 
 ## Highlights
 
-- 128 deliberately designed patches across eight banks
+- 256 deliberately designed patches across sixteen banks
 - Three sensor-modulated Euclidean rhythm lanes
 - Separate bass/percussion, pad, and lead PRA32-U synthesis at 48 kHz
 - Sensor control of notes, expression, timbre, rhythm, ratchets, and pitch bend
@@ -38,6 +38,10 @@ respective owner.
 The ready-to-flash build is
 [`pocket_scion_synth_v2.4.0.uf2`](https://github.com/toonhuysmans/pocket-scion-synth/releases/download/multi-tibral/pocket_scion_synth_v2.4.0.uf2)
 from the [v2.4.0 multi-timbral release](https://github.com/toonhuysmans/pocket-scion-synth/releases/tag/multi-tibral).
+
+The current `multi-timbral` source is the v2.5.0 development library with
+sixteen banks. Its audition build should be hardware-tested before replacing
+the stable v2.4.0 download above.
 
 1. Disconnect the Pocket SCION from USB.
 2. Hold its RP2040 boot-selection control while reconnecting USB, or otherwise

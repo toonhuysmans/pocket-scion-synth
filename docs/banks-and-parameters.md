@@ -1,13 +1,19 @@
 # Banks, scenes, and parameters
 
-The sound library contains 128 patches: eight banks with sixteen scene slots
+The sound library contains 256 patches: sixteen banks with sixteen scene slots
 per bank. A scene supplies the musical identity (scale, motif, base tempo, and
 Euclidean lane lengths); a bank gives that identity a deliberate synthesis and
 performance direction.
 
-Patch numbers below are written as 1–16 for players. In MIDI and source code
-they are zero-based program numbers 0–15. The combined patch ID sent on MIDI
-CC 23 is `bank × 16 + program`, ranging from 0 to 127.
+Patch numbers below are written as 1–16 for players and are zero-based program
+numbers 0–15 in MIDI and source. Standard Bank Select and Program Change
+address all 256 patches. Legacy CC 23 carries `bank × 16 + program` only for
+banks 0–7, where it fits in one 7-bit data byte.
+
+The compiled defaults for the pre-expansion banks 0–7 are also archived as
+editor-compatible JSON in [`presets/factory-v2.4`](../presets/factory-v2.4/).
+They contain all 128 original multitimbral patches and no saved device
+overrides.
 
 ## Bank overview
 
@@ -21,6 +27,14 @@ CC 23 is `bank × 16 + program`, ranging from 0 to 127.
 | 5 | Atmosphere | 70% | Sparse patterns, slow attacks, high sustain, long releases, slow LFOs, deep chorus, and ping-pong delay. Longest gates and lowest ratchet response. |
 | 6 | Spectral | 112% | Alternating filter modes, wider oscillator and pitch geometry, stronger resonance, envelope/LFO pitch routing, faster timbral motion, and upward register expansion. |
 | 7 | Extreme | 135% | Deliberately bounded edge cases: hard waveform contrasts, high resonance, fast LFOs, maximum routing, strong effects, short gates, dense rhythms, wide bends, and aggressive ratchets. |
+| 8 | Dub Techno | 100% | Sub/kick hybrids, minor chord stabs, sparse high phrases, deep chorus, and tempo-related ping-pong echoes. |
+| 9 | Motorik | 100% | Straight ostinato bass, stable harmonic beds, clean repeating leads, and restrained effects. |
+| 10 | Polyrhythmic Organic | 100% | Co-prime lane lengths, wood/tom/shaker articulation, warm pads, and breath-responsive mallet or reed leads. |
+| 11 | Cinematic | 100% | Sparse low impacts, dominant evolving pads, slow thematic leads, long gates, and wide spatial effects. |
+| 12 | Acid & Electro | 100% | Kick/bass alternation, short machine chords, resonant envelope leads, and increasing rhythmic drive. |
+| 13 | Broken Beat & IDM | 100% | Irregular hybrid percussion, offset stabs, angular digital phrases, selective ratchets, and controlled S&H motion. |
+| 14 | Minimal Phase | 100% | Restricted pitch cells, long mutually phasing cycles, restrained timbres, and slow sensor-led accumulation. |
+| 15 | Chiptune | 100% | Pulse bass, noise percussion, compact digital harmony, bright arpeggios, and deliberately modest effects. |
 
 Each bank also deliberately separates the three timbral roles:
 
@@ -34,6 +48,14 @@ Each bank also deliberately separates the three timbral roles:
 | Atmosphere | Sub drone, heartbeat, swell, or filtered wind | Longest evolving pad | Slow high-pass air lead |
 | Spectral | Resonant body, metal strike, noise click, or hollow ring | Glass/high-pass pad | Glass/noise lead |
 | Extreme | Per-hit randomized sub/noise impacts | Animated gated cloud | Unstable sample-and-hold lead |
+| Dub Techno | Round sub or kick/bass hybrid | Delayed minor/suspended chord stab | Sparse high-pass echo punctuation |
+| Motorik | Even tonal ostinato | Sustained harmonic bed | Bright repeating sequencer line |
+| Polyrhythmic Organic | Tuned wood, tom, shaker, and bass body | Warm breathing harmony | Reed/mallet call-and-response |
+| Cinematic | Sub swell and large impact | Long evolving score bed | Slow expressive high theme |
+| Acid & Electro | Tight kick/bass machine | Compact chord stab | Resonant glide lead |
+| Broken Beat & IDM | Short irregular impact kit | Offset digital stab | Angular S&H fragment |
+| Minimal Phase | Stable repeating anchor | Slowly phasing harmonic cell | Restricted clear motif |
+| Chiptune | Pulse bass and noise accent | Compact pulse harmony | Fast square-wave arpeggio |
 
 ### Percussive bank profiles
 
@@ -80,15 +102,15 @@ controls random parameter motion and Hybrid switching. This gives every bank
 the same exposed percussion vocabulary while its authored defaults retain a
 distinct direction.
 
-The **pitch-bend layer is separate from the eight banks**. Holding Instrument
+The **pitch-bend layer is separate from the sixteen banks**. Holding Instrument
 toggles sensor pitch bend for whichever bank and scene are active; it does not
 replace the selected patch.
 
 ## Scene overview
 
-Every bank retains the scene's scale, motif, base tempo, and three Euclidean
-lane lengths. It then transforms the synthesis and interaction as described
-above.
+Banks 0–7 retain the original scene scale, motif, base tempo, and Euclidean
+geometry. Banks 8–15 contain newly authored style-specific scales, motifs,
+tempos, lane lengths, densities, gates, ratchets, and three-part arrangements.
 
 | Patch | Foundation identity | Base BPM | Euclidean steps: bass / melody / upper | Scale offsets in semitones |
 |---:|---|---:|---|---|
@@ -208,6 +230,14 @@ multipliers.
 | 5 Atmosphere | 108 | 54 | 18 | 8 | 46 | 12 | 0.45 | −2 | 0.45 |
 | 6 Spectral | 92 | 112 | 46 | 22 | 72 | 40 | 1.10 | 0 | 1.08 |
 | 7 Extreme | 127 | 127 | 56 | 30 | 92 | 56 | 1.40 | +2 | 1.75 |
+| 8 Dub Techno | 104 | 72 | 28 | 16 | 38 | 18 | 0.60 | −1 | 0.72 |
+| 9 Motorik | 82 | 76 | 34 | 12 | 34 | 24 | 0.55 | +1 | 0.68 |
+| 10 Polyrhythmic Organic | 127 | 96 | 30 | 14 | 54 | 22 | 0.70 | 0 | 0.82 |
+| 11 Cinematic | 118 | 68 | 24 | 12 | 48 | 14 | 0.65 | −2 | 0.42 |
+| 12 Acid & Electro | 76 | 92 | 48 | 26 | 28 | 34 | 0.80 | +1 | 1.10 |
+| 13 Broken Beat & IDM | 92 | 118 | 44 | 22 | 62 | 46 | 1.00 | +1 | 1.38 |
+| 14 Minimal Phase | 112 | 82 | 22 | 8 | 42 | 16 | 0.45 | −1 | 0.52 |
+| 15 Chiptune | 68 | 104 | 38 | 14 | 32 | 38 | 0.70 | +1 | 1.18 |
 
 The compiled defaults express the former special cases as ordinary patch
 values: scene 15 starts with a full-breath override, scene 11 starts at 125%
@@ -219,7 +249,7 @@ release motion. None of these behaviours depends on scene number after load.
 
 | Parameter | Range/default | Use |
 |---|---|---|
-| Bank | 0–7, default 0 | Selects the synthesis and interaction direction. |
+| Bank | 0–15, default 0 | Selects the synthesis and interaction direction. |
 | Program | 0–15, default 0 | Selects scene identity, motif, scale, tempo, and lane lengths. |
 | Root note | MIDI 24–72, default 45 (A2) | Transposes all generated notes in semitone steps. |
 | Sensitivity | 8 steps: 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.5, 8.0; default 4.0 | Changes trigger analysis and contributes to pulse density and ratchet drive. |
@@ -259,9 +289,9 @@ mode or channels 1–3 in multichannel mode.
 
 | Message | Meaning |
 |---|---|
-| Bank Select CC 0 / CC 32 | Bank 0–7 / zero |
+| Bank Select CC 0 / CC 32 | Bank 0–15 / zero |
 | Program Change | Scene 0–15 |
-| CC 23 | Combined patch ID 0–127 |
+| CC 23 | Legacy combined patch ID 0–127; omitted for banks 8–15 |
 | CC 24 | MIDI mode: 0 single, 127 multichannel |
 | CC 20 | Sensitivity, normalized to 0–127 |
 | CC 7 | Volume, normalized to 0–127 |

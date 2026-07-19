@@ -137,4 +137,7 @@ export const globalParameters: Parameter[] = [
   { id: 6, name: "LED master brightness", section: "Display", min: 0, max: 127 },
 ];
 
-export const bankNames = ["Legacy", "Foundation", "Organic", "Percussive", "Bass & Lead", "Atmosphere", "Spectral", "Extreme"];
+export const bankNames = [
+  "Legacy", "Foundation", "Organic", "Percussive", "Bass & Lead", "Atmosphere", "Spectral", "Extreme",
+  "Dub Techno", "Motorik", "Polyrhythmic Organic", "Cinematic", "Acid & Electro", "Broken Beat & IDM", "Minimal Phase", "Chiptune",
+];

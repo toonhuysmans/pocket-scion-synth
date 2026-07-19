@@ -80,6 +80,14 @@ static rgb_t bank_colours[] = {
     {  8, 30,100},  // Atmosphere
     {  0, 88, 92},  // Spectral
     {100,  0, 92},  // Extreme
+    { 28, 18,100},  // Dub Techno
+    {100, 54,  4},  // Motorik
+    { 58, 92,  8},  // Polyrhythmic Organic
+    { 38, 16,100},  // Cinematic
+    { 70,100,  0},  // Acid & Electro
+    {100,  8, 62},  // Broken Beat & IDM
+    { 16, 80,100},  // Minimal Phase
+    {100, 84,  4},  // Chiptune
 };
 
 static uint8_t scale_channel(uint8_t channel, uint8_t scale) {

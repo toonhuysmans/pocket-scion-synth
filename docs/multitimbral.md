@@ -2,7 +2,8 @@
 
 The `multi-timbral` branch maps the three sequencer ranges to independent
 PRA32-U timbres: bass/percussion, pad, and lead. This hardware-tested
-three-engine topology is packaged as release v2.4.0.
+three-engine topology was packaged in v2.4.0 and the v2.5.0 development build
+expands it to sixteen banks and 256 patches.
 
 ## Signal path
 
@@ -36,7 +37,7 @@ new pitch replaces only the note in that role. Ratchets retain lane identity.
 The current sequencer supplies at most one simultaneous note per lane.
 Polyphonic and paraphonic PRA32-U paths therefore add no notes here while
 exceeding the RP2040 real-time budget when combined with three engines and pad
-effects. Firmware v2.4.0 exposes only monophonic, legato-with-glide, and legato
+effects. Firmware v2.5.0 exposes only monophonic, legato-with-glide, and legato
 until lane note slots and DSP resource allocation are redesigned together.
 MIDI remains channel 1, or low/pad/lead on channels 1/2/3. RGB radius follows
 one through three simultaneous notes.
@@ -50,7 +51,7 @@ freeze. Each PRA32-U instance renders all of its own oscillators on its assigned
 core. Its upstream internal two-core handshake remains disabled because nesting
 it inside this three-engine scheduler deadlocks bass and pad. The full voice
 paths remain compiled for future scheduling work but are rejected at the live
-parameter boundary in v2.4.0.
+parameter boundary in v2.5.0.
 
 Future DSP or scheduling changes still require the complete
 [hardware checklist](hardware-testing.md), especially audio-underrun tests at

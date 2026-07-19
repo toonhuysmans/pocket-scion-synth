@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { decodeMessage, decodePatchSelection, decodeRootNote, encodeMessage, valueBytes } from "./protocol";
-import { bankParameters, globalParameters, midiNoteName, patchSharedParameters, scalePresets, sceneParameters } from "./parameters";
+import { decodeBankSelection, decodeMessage, decodePatchSelection, decodeProgramChange, decodeRootNote, encodeMessage, valueBytes } from "./protocol";
+import { bankNames, bankParameters, globalParameters, midiNoteName, patchSharedParameters, scalePresets, sceneParameters } from "./parameters";
 
 describe("Pocket SCION SysEx codec", () => {
   it("round-trips a 14-bit parameter value", () => {
@@ -29,6 +29,13 @@ describe("Pocket SCION SysEx codec", () => {
     expect(decodeRootNote(Uint8Array.from([0xb1, 22, 60]))).toBe(60);
     expect(decodeRootNote(Uint8Array.from([0xb0, 23, 45]))).toBeUndefined();
   });
+
+  it("combines standard bank and program messages for upper banks", () => {
+    expect(decodeBankSelection(Uint8Array.from([0xb2, 0, 12]))).toBe(12);
+    expect(decodeProgramChange(Uint8Array.from([0xc2, 8]))).toBe(8);
+    expect(valueBytes(200)).toEqual([72, 1]);
+    expect(valueBytes(255)).toEqual([127, 1]);
+  });
 });
 
 describe("editor schema", () => {
@@ -37,6 +44,7 @@ describe("editor schema", () => {
     expect(patchSharedParameters).toHaveLength(113);
     expect(bankParameters).toHaveLength(19);
     expect(globalParameters).toHaveLength(7);
+    expect(bankNames).toHaveLength(16);
     expect(sceneParameters[18].values?.map(choice => choice.value)).toEqual([2, 4, 5]);
     expect(patchSharedParameters[35].values?.map(choice => choice.value)).toEqual([0, 1, 2, 3]);
     expect(patchSharedParameters[39].values).toHaveLength(8);

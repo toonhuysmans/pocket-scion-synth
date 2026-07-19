@@ -9,7 +9,7 @@
 static void (*receive_handler)(uint8_t byte);
 static uint8_t response[96];
 static uint16_t response_length;
-static uint8_t selected_patch;
+static uint16_t selected_patch;
 static uint16_t set_value;
 
 uint32_t preset_store_flash_size(void) { return 2u * 1024u * 1024u; }
@@ -25,33 +25,33 @@ void midi_set_sysex_byte_handler(void (*handler)(uint8_t byte)) {
     receive_handler = handler;
 }
 
-bool synth_editor_select(synth_t *synth, uint8_t patch_id) {
+bool synth_editor_select(synth_t *synth, uint16_t patch_id) {
     (void)synth;
     selected_patch = patch_id;
-    return patch_id < 128u;
+    return patch_id < 256u;
 }
 
-bool synth_editor_get(const synth_t *synth, uint8_t scope, uint8_t target,
+bool synth_editor_get(const synth_t *synth, uint8_t scope, uint16_t target,
                       uint8_t lane, uint8_t parameter, uint16_t *value) {
     (void)synth; (void)scope; (void)target; (void)lane; (void)parameter;
     *value = 1000u;
     return true;
 }
 
-bool synth_editor_set(synth_t *synth, uint8_t scope, uint8_t target,
+bool synth_editor_set(synth_t *synth, uint8_t scope, uint16_t target,
                       uint8_t lane, uint8_t parameter, uint16_t value) {
     (void)synth; (void)scope; (void)target; (void)lane; (void)parameter;
     set_value = value;
     return true;
 }
 
-bool synth_editor_commit(const synth_t *synth, uint8_t scope, uint8_t target) {
+bool synth_editor_commit(const synth_t *synth, uint8_t scope, uint16_t target) {
     (void)synth; (void)scope; (void)target; return true;
 }
-bool synth_editor_revert(synth_t *synth, uint8_t scope, uint8_t target) {
+bool synth_editor_revert(synth_t *synth, uint8_t scope, uint16_t target) {
     (void)synth; (void)scope; (void)target; return true;
 }
-bool synth_editor_restore(synth_t *synth, uint8_t scope, uint8_t target) {
+bool synth_editor_restore(synth_t *synth, uint8_t scope, uint16_t target) {
     (void)synth; (void)scope; (void)target; return true;
 }
 
@@ -91,8 +91,8 @@ int main(void) {
 
     send_request(0x01u, 7u, NULL, 0u);
     assert_response(0x41u, 7u);
-    assert(response[10] == 0u && response[11] == 1u);  // 128 patches.
-    assert(response[12] == 8u);
+    assert(response[10] == 0u && response[11] == 2u);  // 256 patches.
+    assert(response[12] == 16u);
     assert(response[13] == SYNTH_EDITOR_SCENE_PARAMETER_COUNT);
     assert(response[14] == SYNTH_EDITOR_PATCH_SHARED_COUNT);
 
@@ -100,6 +100,11 @@ int main(void) {
     send_request(0x02u, 8u, select, sizeof(select));
     assert_response(0x40u, 8u);
     assert(selected_patch == 42u);
+
+    const uint8_t select_extended[] = {72u, 1u};  // Patch 200.
+    send_request(0x02u, 11u, select_extended, sizeof(select_extended));
+    assert_response(0x40u, 11u);
+    assert(selected_patch == 200u);
 
     const uint8_t set[] = {0u, 42u, 2u, 23u, 112u, 1u};
     send_request(0x04u, 9u, set, sizeof(set));

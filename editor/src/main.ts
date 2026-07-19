@@ -26,18 +26,28 @@ const patchSelect = $("#patch") as HTMLSelectElement;
 const editor = $("#editor");
 const status = $("#status");
 
-bankNames.forEach((name, index) => bankSelect.add(new Option(`${index + 1}. ${name}`, String(index))));
+function populateBanks(count = bankNames.length): void {
+  const selected = Number(bankSelect.value) || 0;
+  bankSelect.replaceChildren();
+  bankNames.slice(0, count).forEach((name, index) =>
+    bankSelect.add(new Option(`${index}. ${name}`, String(index))));
+  bankSelect.value = String(Math.min(selected, Math.max(0, count - 1)));
+}
+populateBanks();
 Array.from({ length: 16 }, (_, index) => patchSelect.add(new Option(`Patch ${index + 1}`, String(index))));
 
 const actions = ["reload", "save-patch", "save-bank", "save-globals", "export-patch", "export-bank", "import-file", "revert", "restore"];
 function enableActions(enabled: boolean): void { actions.forEach(id => (($(`#${id}`) as HTMLButtonElement).disabled = !enabled)); }
 function patchId(): number { return Number(bankSelect.value) * 16 + Number(patchSelect.value); }
+function addressed(scope: number, target: number, tail: number[] = []): number[] {
+  return [scope, ...connection.targetBytes(target), ...tail];
+}
 function setStatus(message: string, error = false): void { status.textContent = message; status.style.color = error ? "#e49a8c" : "#aab3a3"; }
 function markDirty(scope: "patch" | "bank" | "globals"): void { dirty.add(scope); renderDirty(); }
 function renderDirty(): void { $("#dirty").textContent = dirty.size ? `Unsaved: ${[...dirty].join(", ")}` : "Saved"; }
 
 async function requestValue(scope: number, target: number, lane: number, parameter: number): Promise<number> {
-  const response = await connection.request(Command.Get, [scope, target, lane, parameter]);
+  const response = await connection.request(Command.Get, addressed(scope, target, [lane, parameter]));
   return response[response.length - 2] | (response[response.length - 1] << 7);
 }
 
@@ -67,7 +77,7 @@ async function loadCurrent(target = patchId(), selectDevice = true): Promise<voi
   const bankIndex = Math.floor(target / 16);
   enableActions(false); setStatus("Reading patch and shared settings…");
   try {
-    if (selectDevice) await connection.request(Command.Select, [target]);
+    if (selectDevice) await connection.request(Command.Select, connection.targetBytes(target));
     if (generation !== loadGeneration) throw new LoadSuperseded();
     const patch = await readPatch(target, generation);
     const bank: number[] = [];
@@ -134,7 +144,7 @@ function renderScalePresetPicker(block: HTMLElement, values: number[]): void {
       });
       render(); markDirty("patch");
       for (let degree = 0; degree < 7; degree++) {
-        await connection.request(Command.Set, [Scope.Patch, target, 3, degree, ...valueBytes(values[degree])]);
+        await connection.request(Command.Set, addressed(Scope.Patch, target, [3, degree, ...valueBytes(values[degree])]));
       }
       setStatus(`${preset.name} applied to patch ${target + 1}. Save the patch to keep it.`);
     }, `Applying ${preset.name}…`);
@@ -229,7 +239,7 @@ function renderParameters(parameters: Parameter[], values: number[], scope: "pat
         const key = `${protocolScope}:${target}:${lane}:${parameter.id}`;
         window.clearTimeout(sendTimers.get(key));
         sendTimers.set(key, window.setTimeout(async () => {
-          try { await connection.request(Command.Set, [protocolScope, target, lane, parameter.id, ...valueBytes(value)]); }
+          try { await connection.request(Command.Set, addressed(protocolScope, target, [lane, parameter.id, ...valueBytes(value)])); }
           catch (error) { setStatus((error as Error).message, true); }
         }, parameter.settleMs ?? 55));
       });
@@ -319,6 +329,7 @@ async function run(action: () => Promise<void>, pending: string): Promise<void> 
 
 $("#connect").addEventListener("click", () => run(async () => {
   capabilities = await connection.connect();
+  populateBanks(capabilities.bankCount);
   sensorSnapshotSupported = undefined;
   $("#connection-light").classList.add("on"); $("#connection-label").textContent = `Pocket SCION ${capabilities.firmware}`;
   await loadCurrent();
@@ -340,11 +351,11 @@ connection.addEventListener("rootchange", event => {
   if (activeTab === "sequence" || activeTab === "globals") render();
 });
 $("#reload").addEventListener("click", () => run(loadCurrent, "Reloading…"));
-$("#save-patch").addEventListener("click", () => run(async () => { await connection.request(Command.Commit, [Scope.Patch, patchId()], 5000); dirty.delete("patch"); renderDirty(); setStatus("Patch saved to Pocket SCION flash."); }, "Saving patch…"));
-$("#save-bank").addEventListener("click", () => run(async () => { await connection.request(Command.Commit, [Scope.Bank, Number(bankSelect.value)], 5000); dirty.delete("bank"); renderDirty(); setStatus("Bank interaction settings saved."); }, "Saving bank settings…"));
-$("#save-globals").addEventListener("click", () => run(async () => { await connection.request(Command.Commit, [Scope.Global, 0], 5000); dirty.delete("globals"); renderDirty(); setStatus("Global settings saved."); }, "Saving globals…"));
-$("#revert").addEventListener("click", () => run(async () => { await connection.request(Command.Revert, [Scope.Patch, patchId()]); await loadCurrent(); }, "Reverting patch…"));
-$("#restore").addEventListener("click", () => { if (confirm("Remove this saved override and restore its compiled default?")) run(async () => { await connection.request(Command.Restore, [Scope.Patch, patchId()], 6000); await loadCurrent(); }, "Restoring default…"); });
+$("#save-patch").addEventListener("click", () => run(async () => { await connection.request(Command.Commit, addressed(Scope.Patch, patchId()), 5000); dirty.delete("patch"); renderDirty(); setStatus("Patch saved to Pocket SCION flash."); }, "Saving patch…"));
+$("#save-bank").addEventListener("click", () => run(async () => { const bank = Number(bankSelect.value); await connection.request(Command.Commit, addressed(Scope.Bank, bank), 5000); dirty.delete("bank"); renderDirty(); setStatus("Bank interaction settings saved."); }, "Saving bank settings…"));
+$("#save-globals").addEventListener("click", () => run(async () => { await connection.request(Command.Commit, addressed(Scope.Global, 0), 5000); dirty.delete("globals"); renderDirty(); setStatus("Global settings saved."); }, "Saving globals…"));
+$("#revert").addEventListener("click", () => run(async () => { await connection.request(Command.Revert, addressed(Scope.Patch, patchId())); await loadCurrent(); }, "Reverting patch…"));
+$("#restore").addEventListener("click", () => { if (confirm("Remove this saved override and restore its compiled default?")) run(async () => { await connection.request(Command.Restore, addressed(Scope.Patch, patchId()), 6000); await loadCurrent(); }, "Restoring default…"); });
 
 function download(name: string, data: unknown): void {
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
@@ -370,14 +381,14 @@ function validPatch(value: unknown): value is PatchFile {
   const sharedParameters = p?.version === 1 ? patchSharedParameters.slice(0, 35)
     : p?.version === 2 ? patchSharedParameters.slice(0, 99)
     : p?.version === 3 ? patchSharedParameters.slice(0, 101) : patchSharedParameters;
-  return p?.schema === "pocket-scion-patch" && (p.version === 1 || p.version === 2 || p.version === 3 || p.version === 4) && Number.isInteger(p.patchId) && p.patchId >= 0 && p.patchId < 128 && p.lanes?.length === 3 && p.lanes.every(lane => valid(lane, sceneParameters)) && valid(p.shared, sharedParameters);
+  return p?.schema === "pocket-scion-patch" && (p.version === 1 || p.version === 2 || p.version === 3 || p.version === 4) && Number.isInteger(p.patchId) && p.patchId >= 0 && p.patchId < (capabilities?.patchCount ?? 256) && p.lanes?.length === 3 && p.lanes.every(lane => valid(lane, sceneParameters)) && valid(p.shared, sharedParameters);
 }
 async function transmitPatch(file: PatchFile, target: number): Promise<void> {
   for (let lane = 0; lane < 3; lane++) for (let parameter = 0; parameter < 47; parameter++) {
     if (lane !== 1 && parameter >= 41) continue;
-    await connection.request(Command.Set, [Scope.Patch, target, lane, parameter, ...valueBytes(file.lanes[lane][parameter])]);
+    await connection.request(Command.Set, addressed(Scope.Patch, target, [lane, parameter, ...valueBytes(file.lanes[lane][parameter])]));
   }
-  for (let parameter = 0; parameter < file.shared.length; parameter++) await connection.request(Command.Set, [Scope.Patch, target, 3, parameter, ...valueBytes(file.shared[parameter])]);
+  for (let parameter = 0; parameter < file.shared.length; parameter++) await connection.request(Command.Set, addressed(Scope.Patch, target, [3, parameter, ...valueBytes(file.shared[parameter])]));
 }
 $("#import-file").addEventListener("click", () => ($("#file") as HTMLInputElement).click());
 $("#file").addEventListener("change", () => run(async () => {
@@ -391,9 +402,9 @@ $("#file").addEventListener("change", () => run(async () => {
     if (bank?.schema !== "pocket-scion-bank" || (bank.version !== 1 && bank.version !== 2 && bank.version !== 3 && bank.version !== 4) || bank.patches?.length !== 16 || !bank.patches.every(validPatch) || !validSettings) throw new Error("This is not a compatible Pocket SCION patch or bank file.");
     if (!confirm("Import and save all 16 patches in the currently selected bank?")) return;
     const targetBank = Number(bankSelect.value);
-    for (let parameter = 0; parameter < bank.settings.length; parameter++) await connection.request(Command.Set, [Scope.Bank, targetBank, 0, parameter, ...valueBytes(bank.settings[parameter])]);
-    await connection.request(Command.Commit, [Scope.Bank, targetBank], 5000);
-    for (let program = 0; program < 16; program++) { setStatus(`Writing bank: patch ${program + 1} of 16…`); const target = targetBank * 16 + program; await transmitPatch(bank.patches[program], target); await connection.request(Command.Commit, [Scope.Patch, target], 5000); }
+    for (let parameter = 0; parameter < bank.settings.length; parameter++) await connection.request(Command.Set, addressed(Scope.Bank, targetBank, [0, parameter, ...valueBytes(bank.settings[parameter])]));
+    await connection.request(Command.Commit, addressed(Scope.Bank, targetBank), 5000);
+    for (let program = 0; program < 16; program++) { setStatus(`Writing bank: patch ${program + 1} of 16…`); const target = targetBank * 16 + program; await transmitPatch(bank.patches[program], target); await connection.request(Command.Commit, addressed(Scope.Patch, target), 5000); }
     await loadCurrent(); setStatus("Bank imported and saved.");
   }
   input.value = "";

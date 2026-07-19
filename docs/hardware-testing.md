@@ -99,6 +99,13 @@ where earlier builds exposed clicking.
   not change the result.
 - Confirm patch changes and MIDI-mode changes send note-offs and leave no stuck
   voices.
+- Confirm bank changes 7→8 and 15→0 are clean, and that the editor follows
+  patches 128, 200, and 255 without rejecting or wrapping their targets.
+- Audition patches 1, 8, 13, and 16 in every bank 8–15 at low and high sensor
+  activity, then sweep all 128 new patches for silence, clipping, excessive
+  density, starvation, and weak separation between the three roles.
+- Save, reboot, revert, and restore one patch and one bank above ID 7; confirm
+  existing saved patches, bank settings, and globals remain intact.
 - Send USB MIDI chords containing one through seven distinct pitch classes.
   Confirm every generated lane stays on a captured pitch class, the previous
   chord remains active between changes, and a new chord replaces it without a

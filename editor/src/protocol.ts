@@ -58,6 +58,16 @@ export function decodePatchSelection(data: Uint8Array): number | undefined {
   return data[2] & 0x7f;
 }
 
+export function decodeBankSelection(data: Uint8Array): number | undefined {
+  if (data.length < 3 || (data[0] & 0xf0) !== 0xb0 || data[1] !== 0) return undefined;
+  return data[2] & 0x7f;
+}
+
+export function decodeProgramChange(data: Uint8Array): number | undefined {
+  if (data.length < 2 || (data[0] & 0xf0) !== 0xc0) return undefined;
+  return data[1] & 0x7f;
+}
+
 export function decodeRootNote(data: Uint8Array): number | undefined {
   if (data.length < 3 || (data[0] & 0xf0) !== 0xb0 || data[1] !== 22) return undefined;
   return data[2] & 0x7f;
@@ -70,6 +80,9 @@ export class PocketScionConnection extends EventTarget {
   private requestId = 0;
   private pending = new Map<number, Pending>();
   private chain: Promise<unknown> = Promise.resolve();
+  private patchCount = 128;
+  private selectedBank = 0;
+  private haveBankSelection = false;
 
   get connected(): boolean { return Boolean(this.input && this.output); }
 
@@ -89,13 +102,19 @@ export class PocketScionConnection extends EventTarget {
     const response = await this.request(Command.Hello, []);
     if (response[0] !== Response.Capabilities) throw new Error("Unexpected discovery response.");
     const p = response.slice(2);
-    return {
+    const capabilities = {
       firmware: `${p[0]}.${p[1]}.${p[2]}`,
       patchCount: p[3] | (p[4] << 7), bankCount: p[5],
       sceneParameters: p[6], patchSharedParameters: p[7],
       bankParameters: p[8], globalParameters: p[9],
       flashMiB: p[10] ?? 0,
     };
+    this.patchCount = capabilities.patchCount;
+    return capabilities;
+  }
+
+  targetBytes(target: number): number[] {
+    return this.patchCount > 128 ? valueBytes(target) : [target & 0x7f];
   }
 
   request(command: number, payload: number[], timeout = 1200): Promise<number[]> {
@@ -129,8 +148,21 @@ export class PocketScionConnection extends EventTarget {
   }
 
   private receive(data: Uint8Array): void {
+    const bank = decodeBankSelection(data);
+    if (bank !== undefined) {
+      this.selectedBank = bank;
+      this.haveBankSelection = true;
+      return;
+    }
+    const program = decodeProgramChange(data);
+    if (program !== undefined && this.haveBankSelection) {
+      this.dispatchEvent(new CustomEvent<number>("patchchange", {
+        detail: this.selectedBank * 16 + (program & 15),
+      }));
+      return;
+    }
     const patch = decodePatchSelection(data);
-    if (patch !== undefined) {
+    if (patch !== undefined && !this.haveBankSelection) {
       this.dispatchEvent(new CustomEvent<number>("patchchange", { detail: patch }));
       return;
     }

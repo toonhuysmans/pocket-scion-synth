@@ -74,8 +74,8 @@ The vendored PRA32-U core provides two oscillators, sub/noise mixing, resonant
 multimode filters, per-voice envelopes, multiple LFO waveforms, portamento,
 chorus, stereo delay, and modulation routing. Each part uses the synthesis and
 modulation sections. The scene builder in
-[`src/synth.cpp`](../src/synth.cpp) defines the factory values for 128 patches
-across eight banks. At runtime the loaded bank route and patch-owned motion
+[`src/synth.cpp`](../src/synth.cpp) defines the factory values for 256 patches
+across sixteen banks. At runtime the loaded bank route and patch-owned motion
 parameters map live sensor statistics into editable ranges. The low
 part ranges from sub bass and tuned percussion to genuine filtered noise for
 snares and hats. The pad supplies harmonic body and owns the patch-shared

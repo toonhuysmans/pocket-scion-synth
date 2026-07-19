@@ -86,7 +86,10 @@ static void process_message(void) {
 
     if (command == COMMAND_HELLO && payload_length == 0u) {
         const uint8_t capabilities[] = {
-            2u, 4u, 0u, 0u, 1u, 8u,
+            2u, 5u, 0u,
+            (uint8_t)(PRESET_STORE_PATCH_COUNT & 0x7fu),
+            (uint8_t)((PRESET_STORE_PATCH_COUNT >> 7u) & 0x7fu),
+            PRESET_STORE_BANK_COUNT,
             SYNTH_EDITOR_SCENE_PARAMETER_COUNT,
             SYNTH_EDITOR_PATCH_SHARED_COUNT,
             SYNTH_EDITOR_BANK_PARAMETER_COUNT,
@@ -97,30 +100,68 @@ static void process_message(void) {
                       sizeof(capabilities));
         return;
     }
-    if (command == COMMAND_SELECT && payload_length == 1u) {
-        ok = synth_editor_select(controlled_synth, payload[0]);
-    } else if (command == COMMAND_GET && payload_length == 4u) {
+    if (command == COMMAND_SELECT &&
+        (payload_length == 1u || payload_length == 2u)) {
+        const uint16_t target = payload_length == 1u ? payload[0] :
+            (uint16_t)(payload[0] | ((uint16_t)payload[1] << 7u));
+        ok = synth_editor_select(controlled_synth, target);
+    } else if (command == COMMAND_GET &&
+               (payload_length == 4u || payload_length == 5u)) {
+        const bool extended = payload_length == 5u;
+        const uint16_t target = extended
+            ? (uint16_t)(payload[1] | ((uint16_t)payload[2] << 7u))
+            : payload[1];
+        const uint8_t lane = payload[extended ? 3u : 2u];
+        const uint8_t parameter = payload[extended ? 4u : 3u];
         uint16_t value;
-        ok = synth_editor_get(controlled_synth, payload[0], payload[1],
-                              payload[2], payload[3], &value);
+        ok = synth_editor_get(controlled_synth, payload[0], target,
+                              lane, parameter, &value);
         if (ok) {
-            const uint8_t response[] = {
-                payload[0], payload[1], payload[2], payload[3],
-                (uint8_t)(value & 0x7fu), (uint8_t)((value >> 7u) & 0x7fu),
-            };
-            send_response(RESPONSE_VALUE, request, response, sizeof(response));
+            uint8_t response[7] = {payload[0], (uint8_t)(target & 0x7fu)};
+            uint8_t length = 0u;
+            if (extended) {
+                response[2] = (uint8_t)((target >> 7u) & 0x7fu);
+                response[3] = lane;
+                response[4] = parameter;
+                response[5] = (uint8_t)(value & 0x7fu);
+                response[6] = (uint8_t)((value >> 7u) & 0x7fu);
+                length = 7u;
+            } else {
+                response[2] = lane;
+                response[3] = parameter;
+                response[4] = (uint8_t)(value & 0x7fu);
+                response[5] = (uint8_t)((value >> 7u) & 0x7fu);
+                length = 6u;
+            }
+            send_response(RESPONSE_VALUE, request, response, length);
             return;
         }
-    } else if (command == COMMAND_SET && payload_length == 6u) {
-        uint16_t value = (uint16_t)(payload[4] | ((uint16_t)payload[5] << 7u));
-        ok = synth_editor_set(controlled_synth, payload[0], payload[1],
-                              payload[2], payload[3], value);
-    } else if (command == COMMAND_COMMIT && payload_length == 2u) {
-        ok = synth_editor_commit(controlled_synth, payload[0], payload[1]);
-    } else if (command == COMMAND_REVERT && payload_length == 2u) {
-        ok = synth_editor_revert(controlled_synth, payload[0], payload[1]);
-    } else if (command == COMMAND_RESTORE && payload_length == 2u) {
-        ok = synth_editor_restore(controlled_synth, payload[0], payload[1]);
+    } else if (command == COMMAND_SET &&
+               (payload_length == 6u || payload_length == 7u)) {
+        const bool extended = payload_length == 7u;
+        const uint16_t target = extended
+            ? (uint16_t)(payload[1] | ((uint16_t)payload[2] << 7u))
+            : payload[1];
+        const uint8_t lane_index = extended ? 3u : 2u;
+        const uint8_t parameter_index = extended ? 4u : 3u;
+        const uint8_t value_index = extended ? 5u : 4u;
+        uint16_t value = (uint16_t)(payload[value_index] |
+            ((uint16_t)payload[value_index + 1u] << 7u));
+        ok = synth_editor_set(controlled_synth, payload[0], target,
+                              payload[lane_index], payload[parameter_index],
+                              value);
+    } else if ((command == COMMAND_COMMIT || command == COMMAND_REVERT ||
+                command == COMMAND_RESTORE) &&
+               (payload_length == 2u || payload_length == 3u)) {
+        const uint16_t target = payload_length == 2u ? payload[1] :
+            (uint16_t)(payload[1] | ((uint16_t)payload[2] << 7u));
+        if (command == COMMAND_COMMIT) {
+            ok = synth_editor_commit(controlled_synth, payload[0], target);
+        } else if (command == COMMAND_REVERT) {
+            ok = synth_editor_revert(controlled_synth, payload[0], target);
+        } else {
+            ok = synth_editor_restore(controlled_synth, payload[0], target);
+        }
     } else if (command == COMMAND_SENSOR_SNAPSHOT && payload_length == 0u) {
         uint8_t response[8];
         for (uint8_t parameter = 0u; parameter < 4u; ++parameter) {

@@ -129,7 +129,7 @@ instead of raw values.
 
 | Control | Effect |
 |---|---|
-| Bank / Patch | Selects one of eight banks and sixteen patches per bank. The device follows the editor. |
+| Bank / Patch | Selects one of sixteen banks and sixteen patches per bank. Bank labels use firmware IDs 0–15, and the device follows the editor. |
 | Reload | Reads the current device values again. |
 | Save patch | Writes the active synth, sequence, and articulation patch to flash. |
 | Save bank settings | Writes the active bank's shared interaction settings. |

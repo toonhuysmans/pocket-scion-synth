@@ -84,7 +84,10 @@ constexpr int8_t scales[][7] = {
 constexpr uint8_t scene_bpm[] = {
     92, 106, 84, 118, 72, 124, 78, 68, 132, 148, 104, 96, 88, 120, 82, 156
 };
-constexpr uint8_t bank_tempo_percent[] = {100, 100, 90, 125, 108, 70, 112, 135};
+constexpr uint8_t bank_tempo_percent[] = {
+    100, 100, 90, 125, 108, 70, 112, 135,
+    100, 100, 100, 100, 100, 100, 100, 100,
+};
 constexpr uint8_t euclid_lengths[][3] = {
     {16, 12,  7},
     {16, 15,  9},
@@ -300,7 +303,7 @@ void load_active_patch(uint8_t id);
 void load_active_bank(uint8_t bank);
 
 constexpr uint8_t scene_count = 16u;
-constexpr uint8_t bank_count = 8u;
+constexpr uint8_t bank_count = PRESET_STORE_BANK_COUNT;
 static_assert(sizeof(bank_tempo_percent) / sizeof(bank_tempo_percent[0]) ==
               bank_count, "Every bank needs a tempo profile");
 static_assert(sizeof(scales) / sizeof(scales[0]) == scene_count);
@@ -619,7 +622,7 @@ scene_t make_scene(uint8_t id) {
             s.resonance = adjust_u7(s.resonance, 20);
             s.chorus_mix = adjust_u7(s.chorus_mix, 22); s.amp_gain = 80;
             break;
-        default:  // Extreme: bounded edge cases across the complete engine.
+        case 7:  // Extreme: bounded edge cases across the complete engine.
             s.osc1_wave = static_cast<uint8_t>((program % 6u) < 5u ?
                 (program % 6u) * 25u : 127u);
             s.osc1_shape = static_cast<uint8_t>(96u + (program % 4u) * 10u);
@@ -639,6 +642,113 @@ scene_t make_scene(uint8_t id) {
             s.chorus_mix = 112; s.chorus_depth = 116;
             s.delay_feedback = static_cast<uint8_t>(88u + (program % 4u) * 10u);
             s.delay_mode = 64; s.pitch_bend_range = 36; s.amp_gain = 70;
+            break;
+        case 8:  // Dub Techno: dark chords, sub weight and spacious echoes.
+            s.osc1_wave = (program & 1u) ? 25u : 0u;
+            s.sub_mix = adjust_u7(s.sub_mix, 22);
+            s.cutoff = adjust_u7(s.cutoff, -22);
+            s.resonance = adjust_u7(s.resonance, 12);
+            s.amp_attack = (program & 3u) == 0u ? 0u : 10u;
+            s.amp_release = adjust_u7(s.amp_release, 12);
+            s.chorus_mix = adjust_u7(s.chorus_mix, 18);
+            s.delay_feedback = static_cast<uint8_t>(72u + (program & 3u) * 9u);
+            s.delay_time = static_cast<uint8_t>(52u + (program % 5u) * 9u);
+            s.delay_mode = 64u;
+            break;
+        case 9:  // Motorik: stable pulse, clean harmonics and sequencer motion.
+            s.osc1_wave = (program & 1u) ? 75u : 25u;
+            s.osc2_wave = 75u;
+            s.cutoff = adjust_u7(s.cutoff, 8);
+            s.resonance = adjust_u7(s.resonance, -6);
+            s.amp_attack = (program & 3u) == 3u ? 8u : 0u;
+            s.amp_release = adjust_u7(s.amp_release, -8);
+            s.lfo_wave = LFO_WAVE_TRIANGLE;
+            s.lfo_rate = static_cast<uint8_t>(34u + (program & 3u) * 8u);
+            s.delay_feedback = adjust_u7(s.delay_feedback, -12);
+            break;
+        case 10:  // Polyrhythmic Organic: woody bodies and breathing movement.
+            s.osc1_wave = 25u;
+            s.osc2_wave = (program & 1u) ? 75u : 100u;
+            s.osc1_shape = adjust_u7(s.osc1_shape, 18);
+            s.cutoff = adjust_u7(s.cutoff, -8);
+            s.amp_attack = adjust_u7(s.amp_attack, 8);
+            s.amp_release = adjust_u7(s.amp_release, 14);
+            s.lfo_wave = (program & 3u) == 3u ? LFO_WAVE_S_AND_H
+                                               : LFO_WAVE_TRIANGLE;
+            s.lfo_rate = adjust_u7(s.lfo_rate, -12);
+            s.breath_filter_amt = adjust_u7(s.breath_filter_amt, 26);
+            s.chorus_mix = adjust_u7(s.chorus_mix, 12);
+            break;
+        case 11:  // Cinematic: slow contours, harmonic breadth and deep space.
+            s.osc1_wave = (program & 1u) ? 75u : 25u;
+            s.osc2_coarse = (program & 2u) ? 76u : 52u;
+            s.amp_attack = static_cast<uint8_t>(32u + (program & 3u) * 14u);
+            s.amp_sustain = 108u;
+            s.amp_release = static_cast<uint8_t>(82u + (program & 3u) * 10u);
+            s.lfo_rate = adjust_u7(s.lfo_rate, -22);
+            s.lfo_fade = adjust_u7(s.lfo_fade, 42);
+            s.chorus_mix = 108u;
+            s.chorus_depth = 104u;
+            s.delay_feedback = static_cast<uint8_t>(70u + (program & 3u) * 8u);
+            s.delay_time = 82u;
+            s.delay_mode = 64u;
+            s.amp_gain = 76u;
+            break;
+        case 12:  // Acid & Electro: resonant envelopes and machine articulation.
+            s.osc1_wave = 0u;
+            s.osc1_shape = static_cast<uint8_t>(88u + (program & 3u) * 10u);
+            s.osc2_wave = 127u;
+            s.sub_mix = adjust_u7(s.sub_mix, 16);
+            s.cutoff = static_cast<uint8_t>(34u + (program % 5u) * 9u);
+            s.resonance = static_cast<uint8_t>(86u + (program & 3u) * 10u);
+            s.filter_eg = 112u;
+            s.eg_decay = static_cast<uint8_t>(30u + (program & 3u) * 9u);
+            s.eg_sustain = 0u;
+            s.amp_attack = 0u;
+            s.amp_release = adjust_u7(s.amp_release, -16);
+            s.delay_feedback = adjust_u7(s.delay_feedback, -14);
+            break;
+        case 13:  // Broken Beat & IDM: angular transients and controlled S&H.
+            s.osc1_wave = (program & 1u) ? 100u : 127u;
+            s.osc2_wave = (program & 2u) ? 25u : 100u;
+            s.osc2_pitch = static_cast<uint8_t>(54u + (program % 5u) * 9u);
+            s.filter_mode = (program & 1u) ? 64u : 0u;
+            s.resonance = adjust_u7(s.resonance, 16);
+            s.amp_attack = 0u;
+            s.amp_release = adjust_u7(s.amp_release, -18);
+            s.lfo_wave = LFO_WAVE_S_AND_H;
+            s.lfo_rate = static_cast<uint8_t>(62u + (program & 3u) * 13u);
+            s.lfo_depth = static_cast<uint8_t>(30u + (program & 3u) * 10u);
+            s.delay_feedback = static_cast<uint8_t>(44u + (program & 3u) * 12u);
+            break;
+        case 14:  // Minimal Phase: restrained tone with slow cumulative motion.
+            s.osc1_wave = 75u;
+            s.osc2_wave = 25u;
+            s.osc2_pitch = (program & 1u) ? 76u : 72u;
+            s.resonance = adjust_u7(s.resonance, -8);
+            s.amp_attack = adjust_u7(s.amp_attack, 12);
+            s.amp_release = adjust_u7(s.amp_release, 18);
+            s.lfo_wave = LFO_WAVE_TRIANGLE;
+            s.lfo_rate = static_cast<uint8_t>(22u + (program & 3u) * 6u);
+            s.lfo_depth = adjust_u7(s.lfo_depth, 8);
+            s.chorus_mix = adjust_u7(s.chorus_mix, 10);
+            s.delay_feedback = adjust_u7(s.delay_feedback, 4);
+            break;
+        default:  // Chiptune: pulse geometry, noise accents and bright arps.
+            s.osc1_wave = (program & 1u) ? 127u : 0u;
+            s.osc1_shape = static_cast<uint8_t>(36u + (program & 3u) * 24u);
+            s.osc2_wave = 127u;
+            s.osc2_coarse = (program & 2u) ? 76u : 64u;
+            s.osc2_pitch = (program & 1u) ? 84u : 72u;
+            s.cutoff = adjust_u7(s.cutoff, 20);
+            s.resonance = adjust_u7(s.resonance, -10);
+            s.amp_attack = 0u;
+            s.amp_decay = static_cast<uint8_t>(34u + (program & 3u) * 8u);
+            s.amp_sustain = static_cast<uint8_t>(50u + (program & 3u) * 14u);
+            s.amp_release = static_cast<uint8_t>(24u + (program & 3u) * 8u);
+            s.lfo_wave = (program & 2u) ? LFO_WAVE_SQUARE : LFO_WAVE_TRIANGLE;
+            s.chorus_mix = adjust_u7(s.chorus_mix, -24);
+            s.delay_feedback = adjust_u7(s.delay_feedback, -18);
             break;
     }
     return s;
@@ -751,7 +861,7 @@ static void build_default_patch_behavior(uint8_t id, patch_record_t *record,
 }
 
 sensor_route_t generated_sensor_route(uint8_t bank) {
-    static constexpr sensor_route_t routes[8] = {
+    static constexpr sensor_route_t routes[16] = {
         {  0,   0, 34.0f, 14.0f, 70.0f, 48.0f, 0.55f,  0, 0.85f}, // Legacy
         {127, 127, 34.0f, 14.0f, 42.0f, 24.0f, 1.00f,  0, 1.00f}, // Foundation
         {127,  76, 24.0f, 10.0f, 58.0f, 18.0f, 0.65f, -1, 0.72f}, // Organic
@@ -760,6 +870,14 @@ sensor_route_t generated_sensor_route(uint8_t bank) {
         {108,  54, 18.0f,  8.0f, 46.0f, 12.0f, 0.45f, -2, 0.45f}, // Atmosphere
         { 92, 112, 46.0f, 22.0f, 72.0f, 40.0f, 1.10f,  0, 1.08f}, // Spectral
         {127, 127, 56.0f, 30.0f, 92.0f, 56.0f, 1.40f,  2, 1.75f}, // Extreme
+        {104,  72, 28.0f, 16.0f, 38.0f, 18.0f, 0.60f, -1, 0.72f}, // Dub Techno
+        { 82,  76, 34.0f, 12.0f, 34.0f, 24.0f, 0.55f,  1, 0.68f}, // Motorik
+        {127,  96, 30.0f, 14.0f, 54.0f, 22.0f, 0.70f,  0, 0.82f}, // Organic poly
+        {118,  68, 24.0f, 12.0f, 48.0f, 14.0f, 0.65f, -2, 0.42f}, // Cinematic
+        { 76,  92, 48.0f, 26.0f, 28.0f, 34.0f, 0.80f,  1, 1.10f}, // Acid/Electro
+        { 92, 118, 44.0f, 22.0f, 62.0f, 46.0f, 1.00f,  1, 1.38f}, // Broken/IDM
+        {112,  82, 22.0f,  8.0f, 42.0f, 16.0f, 0.45f, -1, 0.52f}, // Minimal Phase
+        { 68, 104, 38.0f, 14.0f, 32.0f, 38.0f, 0.70f,  1, 1.18f}, // Chiptune
     };
     return routes[bank];
 }
@@ -861,6 +979,44 @@ scene_t make_generated_lane_scene(uint8_t id, uint8_t lane) {
                 scene.amp_decay = adjust_u7(scene.amp_decay, -18);
                 scene.lfo_wave = LFO_WAVE_S_AND_H;
                 break;
+            case 8u:  // Dub: round sub with occasional pitch-envelope weight.
+                scene.sub_mix = 127u; scene.cutoff = 30u;
+                scene.amp_sustain = 94u; scene.amp_release = 54u;
+                break;
+            case 9u:  // Motorik: short, even ostinato bass.
+                scene.sub_mix = 104u; scene.amp_attack = 0u;
+                scene.amp_decay = 58u; scene.amp_sustain = 76u;
+                scene.amp_release = 34u;
+                break;
+            case 10u:  // Organic polyrhythm: tuned wood/tom body.
+                scene.osc1_wave = 25u; scene.eg_osc_amt = 94u;
+                scene.eg_osc_dst = 127u; scene.amp_decay = 64u;
+                scene.amp_sustain = 28u; scene.amp_release = 52u;
+                break;
+            case 11u:  // Cinematic: sub swell and impact body.
+                scene.amp_attack = adjust_u7(scene.amp_attack, 18);
+                scene.amp_sustain = 112u;
+                scene.amp_release = adjust_u7(scene.amp_release, 24);
+                break;
+            case 12u:  // Acid/Electro: tight resonant bass.
+                scene.sub_mix = 118u; scene.cutoff = 34u;
+                scene.resonance = 104u; scene.filter_eg = 120u;
+                scene.amp_decay = 48u; scene.amp_release = 30u;
+                break;
+            case 13u:  // Broken/IDM: short hybrid impact.
+                scene.amp_attack = 0u; scene.amp_decay = 38u;
+                scene.amp_sustain = 12u; scene.amp_release = 28u;
+                scene.lfo_wave = LFO_WAVE_S_AND_H;
+                break;
+            case 14u:  // Minimal: stable tonal anchor.
+                scene.sub_mix = 108u; scene.resonance = 20u;
+                scene.amp_sustain = 96u; scene.amp_release = 56u;
+                break;
+            case 15u:  // Chiptune: pulse bass with a noise-capable edge.
+                scene.osc1_wave = 127u; scene.osc1_shape = 40u;
+                scene.sub_mix = (program & 3u) == 3u ? 28u : 88u;
+                scene.amp_decay = 44u; scene.amp_release = 24u;
+                break;
             default:  // Legacy/Foundation: versatile synth bass.
                 break;
         }
@@ -920,6 +1076,48 @@ scene_t make_generated_lane_scene(uint8_t id, uint8_t lane) {
                 scene.lfo_depth = adjust_u7(scene.lfo_depth, 20);
                 scene.resonance = adjust_u7(scene.resonance, 16);
                 break;
+            case 8u:  // Dub: compact chord body feeding the shared delay.
+                scene.amp_attack = 0u; scene.amp_decay = 64u;
+                scene.amp_sustain = 54u; scene.amp_release = 70u;
+                scene.chorus_mix = 88u; scene.delay_feedback = 92u;
+                scene.delay_mode = 64u;
+                break;
+            case 9u:  // Motorik: sustained harmonic bed behind the pulse.
+                scene.amp_attack = 10u; scene.amp_sustain = 104u;
+                scene.amp_release = 60u; scene.chorus_mix = 68u;
+                break;
+            case 10u:  // Organic polyrhythm: warm breathing chords.
+                scene.osc1_wave = 25u; scene.osc2_wave = 75u;
+                scene.amp_attack = 28u; scene.amp_release = 78u;
+                scene.breath_amp_mod = 72u;
+                break;
+            case 11u:  // Cinematic: dominant long-form pad.
+                scene.amp_attack = 72u; scene.amp_sustain = 122u;
+                scene.amp_release = 118u; scene.chorus_mix = 120u;
+                scene.chorus_depth = 116u; scene.delay_feedback = 94u;
+                scene.delay_mode = 64u;
+                break;
+            case 12u:  // Acid/Electro: clipped machine chord.
+                scene.amp_attack = 0u; scene.amp_decay = 46u;
+                scene.amp_sustain = 36u; scene.amp_release = 34u;
+                scene.resonance = 72u; scene.delay_feedback = 34u;
+                break;
+            case 13u:  // Broken/IDM: offset digital stab.
+                scene.amp_attack = 0u; scene.amp_decay = 52u;
+                scene.amp_sustain = 42u; scene.amp_release = 38u;
+                scene.lfo_wave = LFO_WAVE_S_AND_H;
+                break;
+            case 14u:  // Minimal: slowly phasing harmonic cell.
+                scene.amp_attack = 24u; scene.amp_sustain = 106u;
+                scene.amp_release = 82u; scene.lfo_rate = 26u;
+                scene.lfo_depth = 22u;
+                break;
+            case 15u:  // Chiptune: compact pulse harmony.
+                scene.osc1_wave = 127u; scene.osc2_wave = 0u;
+                scene.amp_attack = 0u; scene.amp_decay = 54u;
+                scene.amp_sustain = 76u; scene.amp_release = 30u;
+                scene.chorus_mix = 38u; scene.delay_feedback = 30u;
+                break;
             default:  // Legacy/Foundation: balanced playable pad.
                 break;
         }
@@ -977,6 +1175,46 @@ scene_t make_generated_lane_scene(uint8_t id, uint8_t lane) {
                 scene.lfo_rate = adjust_u7(scene.lfo_rate, 24);
                 scene.lfo_depth = adjust_u7(scene.lfo_depth, 22);
                 scene.pitch_bend_range = 36u;
+                break;
+            case 8u:  // Dub: rare high echo punctuation.
+                scene.filter_mode = 64u; scene.amp_attack = 6u;
+                scene.amp_release = 50u; scene.lfo_rate = 32u;
+                break;
+            case 9u:  // Motorik: bright repeating sequencer line.
+                scene.osc1_wave = 75u; scene.amp_attack = 0u;
+                scene.amp_decay = 52u; scene.amp_sustain = 64u;
+                scene.amp_release = 28u;
+                break;
+            case 10u:  // Organic polyrhythm: reed/mallet response.
+                scene.osc1_wave = (program & 1u) ? 127u : 25u;
+                scene.breath_filter_amt = 124u;
+                scene.breath_amp_mod = 88u; scene.amp_release = 54u;
+                break;
+            case 11u:  // Cinematic: slow high theme.
+                scene.filter_mode = 64u; scene.amp_attack = 48u;
+                scene.amp_sustain = 96u; scene.amp_release = 90u;
+                scene.lfo_fade = 82u;
+                break;
+            case 12u:  // Acid/Electro: resonant glide lead.
+                scene.portamento = static_cast<uint8_t>(32u + (program & 3u) * 12u);
+                scene.resonance = 112u; scene.filter_eg = 116u;
+                scene.amp_attack = 0u; scene.amp_release = 28u;
+                break;
+            case 13u:  // Broken/IDM: angular digital fragment.
+                scene.osc1_wave = 100u; scene.lfo_wave = LFO_WAVE_S_AND_H;
+                scene.amp_attack = 0u; scene.amp_decay = 38u;
+                scene.amp_sustain = 20u; scene.amp_release = 24u;
+                break;
+            case 14u:  // Minimal: restricted clear melodic cell.
+                scene.resonance = 20u; scene.amp_attack = 12u;
+                scene.amp_sustain = 86u; scene.amp_release = 62u;
+                scene.lfo_rate = 30u;
+                break;
+            case 15u:  // Chiptune: fast square-wave arpeggio voice.
+                scene.osc1_wave = 127u; scene.osc1_shape = 92u;
+                scene.osc2_wave = 0u; scene.amp_attack = 0u;
+                scene.amp_decay = 38u; scene.amp_sustain = 48u;
+                scene.amp_release = 20u;
                 break;
             default:  // Legacy/Foundation: clear lead/pluck.
                 break;
@@ -1099,6 +1337,159 @@ void apply_percussive_profile(uint8_t program, patch_record_t *record) {
     }
 }
 
+struct style_composition_t {
+    uint8_t bpm[16];
+    uint8_t swing;
+    int8_t density[3];
+    uint8_t gate[3];
+    uint8_t ratchet[3];
+    uint8_t low_balance;
+};
+
+static constexpr style_composition_t style_compositions[8] = {
+    {{ 78, 84, 92,100, 86, 96,108,116, 74, 82, 94,104, 98,110,122,128},
+      58, {-1,-3,-5}, {82,58,38}, {24,44,58}, 58},
+    {{104,112,118,126,108,120,128,136, 96,110,122,132,116,130,140,148},
+      50, { 2,-2, 0}, {70,66,40}, {18,34,48}, 18},
+    {{ 82, 90, 98,106, 88,100,112,120, 92,104,116,126,108,120,132,140},
+      59, { 0,-1,-2}, {86,74,50}, {28,46,58}, 84},
+    {{ 54, 62, 70, 78, 60, 68, 76, 86, 64, 72, 82, 92, 74, 84, 96,104},
+      54, {-4,-5,-6}, {112,120,88}, { 8,18,26}, 46},
+    {{110,118,126,134,116,124,132,142,122,130,140,148,128,140,150,158},
+      54, { 2,-3, 1}, {62,40,28}, {44,62,78}, 76},
+    {{ 92,102,112,124, 98,110,122,136,106,118,132,146,114,130,148,166},
+      61, { 0,-2,-1}, {60,48,30}, {54,78,102}, 104},
+    {{ 68, 74, 82, 90, 72, 80, 88, 98, 76, 86, 96,108, 84, 96,112,124},
+      50, {-3,-4,-5}, {98,90,58}, {12,24,34}, 24},
+    {{112,120,132,144,118,130,142,154,126,138,150,164,136,150,168,184},
+      52, { 1,-1, 2}, {58,48,26}, {38,58,84}, 72},
+};
+
+static constexpr int8_t style_scales[8][4][7] = {
+    {{0,3,5,7,10,12,15},{0,2,3,7,9,12,14},{0,3,5,6,10,12,15},{0,2,3,5,7,9,10}},
+    {{0,2,4,5,7,9,10},{0,2,4,7,9,12,14},{0,2,4,6,7,9,11},{0,2,3,5,7,9,10}},
+    {{0,2,3,5,7,9,10},{0,3,5,7,10,12,15},{0,2,4,7,9,12,14},{0,2,3,6,7,9,10}},
+    {{0,2,3,5,7,8,11},{0,2,3,5,7,9,11},{0,1,3,5,7,8,11},{0,2,3,6,7,10,11}},
+    {{0,1,3,5,7,8,10},{0,1,2,3,6,7,10},{0,2,3,5,7,8,11},{0,2,3,5,7,9,10}},
+    {{0,1,3,4,6,8,10},{0,2,3,6,7,9,11},{0,1,4,5,7,8,11},{0,2,5,6,8,9,11}},
+    {{0,2,4,7,9,12,14},{0,2,3,5,7,9,10},{0,2,4,6,7,9,11},{0,2,4,5,7,9,11}},
+    {{0,2,4,7,9,12,16},{0,2,3,5,7,8,10},{0,2,4,5,7,9,11},{0,3,5,7,10,12,15}},
+};
+
+static constexpr uint8_t style_motifs[8][16] = {
+    {0,0,2,0,3,0,1,0, 4,0,2,1,5,0,3,1},
+    {0,2,4,1,3,5,2,4, 1,3,6,2,5,3,1,4},
+    {0,3,1,4,2,5,0,3, 6,2,4,1,5,3,0,2},
+    {0,0,3,1,0,4,2,0, 5,1,3,6,2,0,4,1},
+    {0,1,4,2,0,5,3,1, 6,2,4,0,5,1,3,2},
+    {0,5,1,6,2,4,0,3, 6,1,5,2,0,4,3,6},
+    {0,1,0,2,1,3,2,4, 3,5,4,6,5,3,2,1},
+    {0,2,4,6,1,3,5,2, 4,6,3,1,5,2,0,6},
+};
+
+static constexpr uint8_t style_lengths[8][4][3] = {
+    {{16,12, 7},{16,15, 9},{16,13,11},{16,11, 7}},
+    {{16,16, 8},{16,12,10},{16,15, 7},{16,13, 9}},
+    {{16,11,13},{15, 9,14},{16,13, 7},{14,11,15}},
+    {{16,15,11},{16,13, 9},{16,12, 7},{16,14,10}},
+    {{16, 8, 6},{16,12, 7},{16,10, 5},{16, 7, 9}},
+    {{15,11, 7},{16, 9,13},{14, 7,11},{16, 5, 9}},
+    {{16,15,13},{15,16,11},{16,13,15},{14,15,16}},
+    {{16, 8, 7},{16,12, 6},{16,10, 9},{16, 7, 5}},
+};
+
+void apply_style_composition(uint8_t bank, uint8_t program,
+                             patch_record_t *record) {
+    const uint8_t style = static_cast<uint8_t>(bank - 8u);
+    const uint8_t quartet = program >> 2u;
+    const uint8_t variant = program & 3u;
+    const style_composition_t &composition = style_compositions[style];
+    std::memcpy(record->scale, style_scales[style][quartet],
+                sizeof(record->scale));
+    for (uint8_t step = 0u; step < 16u; ++step) {
+        uint8_t source = static_cast<uint8_t>((step + variant * 3u) & 15u);
+        uint8_t degree = style_motifs[style][source];
+        if ((step & 3u) == variant) degree = static_cast<uint8_t>(
+            (degree + quartet + variant) % 7u);
+        record->motif[step] = degree;
+    }
+    record->bpm = composition.bpm[program];
+    record->swing_percent = static_cast<uint8_t>(composition.swing +
+        ((style == 2u || style == 5u) ? variant : variant / 2u));
+    static constexpr int8_t length_motion[4][3] = {
+        {0,0,0}, {0,1,-1}, {0,-1,1}, {0,2,-2},
+    };
+    for (uint8_t lane = 0u; lane < 3u; ++lane) {
+        int length = style_lengths[style][quartet][lane] +
+                     length_motion[variant][lane];
+        if (length < 1) length = 1;
+        if (length > 16) length = 16;
+        record->euclid_length[lane] = static_cast<uint8_t>(length);
+        int density = composition.density[lane] +
+            static_cast<int>(quartet) / 2 + (variant == 3u ? 1 : 0);
+        if (density < -8) density = -8;
+        if (density > 8) density = 8;
+        if (lane == 0u) record->density_bias = static_cast<int8_t>(density);
+        else if (lane == 1u) record->density_bias_pad = static_cast<int8_t>(density);
+        else record->density_bias_lead = static_cast<int8_t>(density);
+        record->gate_q5[lane] = composition.gate[lane];
+        unsigned ratchet = composition.ratchet[lane] + quartet * 6u +
+                           (variant == 3u ? 8u : 0u);
+        if (ratchet > 200u) ratchet = 200u;
+        record->ratchet_percent[lane] = static_cast<uint8_t>(ratchet);
+    }
+    record->low_balance = composition.low_balance;
+    record->low_sensor = static_cast<uint8_t>(64u + style * 6u);
+    record->low_variation = static_cast<uint8_t>(52u + quartet * 14u);
+
+    patch_behavior_storage(*record, PATCH_BEND_PERCENT) =
+        style == 4u || style == 5u ? 85u : 55u;
+    patch_behavior_storage(*record, PATCH_RATCHET_PERCENT) =
+        static_cast<uint8_t>(90u + quartet * 8u);
+    patch_behavior_storage(*record, PATCH_AMP_DECAY_MOTION) =
+        static_cast<uint8_t>(style == 3u ? 34u : 18u + quartet * 8u);
+    patch_behavior_storage(*record, PATCH_AMP_SUSTAIN_MOTION) =
+        static_cast<uint8_t>(style == 3u ? 46u : 16u + quartet * 7u);
+    patch_behavior_storage(*record, PATCH_AMP_RELEASE_MOTION) =
+        static_cast<uint8_t>(style == 0u || style == 3u ? 54u : 20u + quartet * 7u);
+    patch_behavior_storage(*record, PATCH_CUTOFF_PERCENT) =
+        static_cast<uint8_t>(82u + style * 6u);
+    patch_behavior_storage(*record, PATCH_RESONANCE_PERCENT) =
+        static_cast<uint8_t>(style == 4u || style == 5u ? 125u : 90u);
+    patch_behavior_storage(*record, PATCH_MORPH_PERCENT) =
+        static_cast<uint8_t>(style == 2u || style == 6u ? 120u : 88u);
+    patch_behavior_storage(*record, PATCH_LFO_RATE_PERCENT) =
+        static_cast<uint8_t>(style == 5u || style == 7u ? 125u : 82u);
+    set_patch_octave_behavior(*record, style == 7u ? 2u : 1u,
+                              style == 3u || style == 6u ? 48u : 0u);
+
+    // Kit emphasis is still ordinary editable articulation data.
+    if (style == 0u || style == 4u) {
+        record->articulation[0].weight = 127u;
+        record->articulation[1].weight = 108u;
+        record->articulation[3].weight = 88u;
+    } else if (style == 2u) {
+        record->articulation[2].weight = 120u;
+        record->articulation[5].algorithm_role =
+            pack_articulation(PERC_RIM_WOOD, PERC_ROLE_FILL);
+        record->articulation[5].weight = 106u;
+    } else if (style == 3u) {
+        record->articulation[0].weight = 92u;
+        record->articulation[2].weight = 112u;
+        record->articulation[3].weight = 32u;
+    } else if (style == 5u) {
+        record->articulation[3].weight = 118u;
+        record->articulation[5].algorithm_role =
+            pack_articulation(PERC_SHAKER_METAL, PERC_ROLE_FREE);
+        record->articulation[5].weight = 102u;
+    } else if (style == 7u) {
+        record->articulation[3].weight = 116u;
+        record->articulation[4].weight = 78u;
+        record->articulation[5].algorithm_role =
+            pack_articulation(PERC_SHAKER_METAL, PERC_ROLE_FILL);
+    }
+}
+
 void build_default_patch(uint8_t id, patch_record_t *record) {
     const uint8_t bank = id / scene_count;
     const uint8_t program = id % scene_count;
@@ -1124,11 +1515,13 @@ void build_default_patch(uint8_t id, patch_record_t *record) {
     record->density_bias_lead = 0;
     if (bank == 3u) apply_percussive_profile(program, record);
     build_default_patch_behavior(id, record, true);
+    if (bank >= 8u) apply_style_composition(bank, program, record);
 }
 
 bool load_patch_override(uint8_t id, patch_record_t *record) {
     size_t stored_size = 0u;
-    if (!preset_store_load_prefix(id, record, sizeof(*record), &stored_size)) {
+    const uint16_t key = preset_store_patch_key(id);
+    if (!preset_store_load_prefix(key, record, sizeof(*record), &stored_size)) {
         return false;
     }
     // Records written before independent lane density used one shared value.
@@ -1171,10 +1564,13 @@ void load_active_patch(uint8_t id) {
 }
 
 void build_default_bank(uint8_t bank, bank_record_t *record) {
-    static constexpr uint8_t colours[8][3] = {
+    static constexpr uint8_t colours[16][3] = {
         {100u, 62u, 8u}, {72u, 72u, 72u}, {8u, 92u, 28u},
         {100u, 34u, 2u}, {100u, 4u, 18u}, {8u, 30u, 100u},
         {0u, 88u, 92u}, {100u, 0u, 92u},
+        {28u, 18u, 100u}, {100u, 54u, 4u}, {58u, 92u, 8u},
+        {38u, 16u, 100u}, {70u, 100u, 0u}, {100u, 8u, 62u},
+        {16u, 80u, 100u}, {100u, 84u, 4u},
     };
     sensor_route_t route = generated_sensor_route(bank);
     record->tempo_percent = bank_tempo_percent[bank];
@@ -1187,21 +1583,33 @@ void build_default_bank(uint8_t bank, bank_record_t *record) {
     record->bend_percent = static_cast<uint8_t>(route.bend_scale * 100.0f);
     record->density_offset = route.density_offset;
     record->ratchet_percent = static_cast<uint8_t>(route.ratchet_scale * 100.0f);
-    record->gate_percent = bank == 3u ? 62u : bank == 4u ? 115u :
-                           bank == 5u ? 185u : bank == 7u ? 78u : 100u;
-    record->lane_motion_percent[0] = 70u;
-    record->lane_motion_percent[1] = 88u;
-    record->lane_motion_percent[2] = 115u;
+    static constexpr uint8_t gate_percent[16] = {
+        100u,100u,100u,62u,115u,185u,100u,78u,
+        112u,96u,108u,160u,82u,72u,125u,76u,
+    };
+    static constexpr uint8_t lane_motion[16][3] = {
+        {70,88,115},{70,88,115},{70,88,115},{70,88,115},
+        {70,88,115},{70,88,115},{70,88,115},{70,88,115},
+        {72,92,108},{68,84,110},{82,98,118},{64,92,104},
+        {76,88,122},{82,96,128},{62,90,106},{70,84,126},
+    };
+    record->gate_percent = gate_percent[bank];
+    std::memcpy(record->lane_motion_percent, lane_motion[bank],
+                sizeof(record->lane_motion_percent));
     record->led_red = colours[bank][0];
     record->led_green = colours[bank][1];
     record->led_blue = colours[bank][2];
-    static constexpr uint8_t low_modes[8] = {
+    static constexpr uint8_t low_modes[16] = {
         LOW_MODE_BASS, LOW_MODE_HYBRID, LOW_MODE_HYBRID,
         LOW_MODE_PERCUSSION, LOW_MODE_BASS, LOW_MODE_BASS,
         LOW_MODE_HYBRID, LOW_MODE_HYBRID,
+        LOW_MODE_HYBRID, LOW_MODE_BASS, LOW_MODE_HYBRID,
+        LOW_MODE_HYBRID, LOW_MODE_HYBRID, LOW_MODE_PERCUSSION,
+        LOW_MODE_BASS, LOW_MODE_HYBRID,
     };
-    static constexpr uint8_t low_balances[8] = {
+    static constexpr uint8_t low_balances[16] = {
         12u, 34u, 72u, 127u, 8u, 18u, 78u, 104u,
+        58u, 18u, 84u, 46u, 76u, 104u, 24u, 72u,
     };
     record->low_mode = low_modes[bank];
     record->low_balance = low_balances[bank];
@@ -1209,7 +1617,7 @@ void build_default_bank(uint8_t bank, bank_record_t *record) {
 
 void load_active_bank(uint8_t bank) {
     build_default_bank(bank, &active_bank);
-    (void)preset_store_load_prefix(static_cast<uint16_t>(128u + bank),
+    (void)preset_store_load_prefix(preset_store_bank_key(bank),
                                    &active_bank, sizeof(active_bank), NULL);
     active_bank_id = bank;
     active_bank_dirty = false;
@@ -1904,7 +2312,7 @@ void synth_sync_midi(const synth_t *synth) {
         midi_control_change(channel, 0, synth->bank_index);
         midi_control_change(channel, 32, 0);
         midi_program_change(channel, synth->program_index);
-        midi_control_change(channel, 23, id);
+        if (id < 128u) midi_control_change(channel, 23, id);
         midi_control_change(channel, 24,
                             synth->midi_multichannel ? 127u : 0u);
         midi_control_change(channel, 20,
@@ -1949,7 +2357,7 @@ static void select_program(synth_t *synth, uint8_t bank, uint8_t program) {
         midi_control_change(channel, 0, synth->bank_index);
         midi_control_change(channel, 32, 0);
         midi_program_change(channel, synth->program_index);
-        midi_control_change(channel, 23, id);
+        if (id < 128u) midi_control_change(channel, 23, id);
     });
 }
 
@@ -2459,21 +2867,23 @@ void __not_in_flash_func(synth_render)(synth_t *synth,
     synth->transport_frame += frame_count;
 }
 
-bool synth_editor_select(synth_t *synth, uint8_t patch_id) {
+bool synth_editor_select(synth_t *synth, uint16_t patch_id) {
     if (patch_id >= scene_count * bank_count) return false;
     select_program(synth, static_cast<uint8_t>(patch_id / scene_count),
                    static_cast<uint8_t>(patch_id % scene_count));
     return true;
 }
 
-static bool editor_get_patch(uint8_t target, uint8_t lane, uint8_t parameter,
-                             uint16_t *value) {
+static bool editor_get_patch(uint16_t target, uint8_t lane, uint8_t parameter,
+                             bool defaults_only, uint16_t *value) {
     if (target >= scene_count * bank_count) return false;
     patch_record_t temporary;
     const patch_record_t *record = &active_patch;
-    if (target != active_patch_id) {
-        build_default_patch(target, &temporary);
-        (void)load_patch_override(target, &temporary);
+    if (defaults_only || target != active_patch_id) {
+        build_default_patch(static_cast<uint8_t>(target), &temporary);
+        if (!defaults_only) {
+            (void)load_patch_override(static_cast<uint8_t>(target), &temporary);
+        }
         normalize_patch_voice_modes(&temporary);
         record = &temporary;
     }
@@ -2555,17 +2965,20 @@ static bool editor_get_patch(uint8_t target, uint8_t lane, uint8_t parameter,
     return true;
 }
 
-static bool editor_get_bank(uint8_t target, uint8_t parameter,
-                            uint16_t *value) {
+static bool editor_get_bank(uint16_t target, uint8_t parameter,
+                            bool defaults_only, uint16_t *value) {
     if (target >= bank_count || parameter >= SYNTH_EDITOR_BANK_PARAMETER_COUNT) {
         return false;
     }
     bank_record_t temporary;
     const bank_record_t *record = &active_bank;
-    if (target != active_bank_id) {
-        build_default_bank(target, &temporary);
-        (void)preset_store_load_prefix(static_cast<uint16_t>(128u + target),
-                                       &temporary, sizeof(temporary), NULL);
+    if (defaults_only || target != active_bank_id) {
+        build_default_bank(static_cast<uint8_t>(target), &temporary);
+        if (!defaults_only) {
+            (void)preset_store_load_prefix(
+                preset_store_bank_key(static_cast<uint8_t>(target)),
+                &temporary, sizeof(temporary), NULL);
+        }
         record = &temporary;
     }
     switch (parameter) {
@@ -2591,14 +3004,18 @@ static bool editor_get_bank(uint8_t target, uint8_t parameter,
     return true;
 }
 
-bool synth_editor_get(const synth_t *synth, uint8_t scope, uint8_t target,
+bool synth_editor_get(const synth_t *synth, uint8_t scope, uint16_t target,
                       uint8_t lane, uint8_t parameter, uint16_t *value) {
     if (value == NULL) return false;
-    if (scope == SYNTH_EDITOR_SCOPE_PATCH) {
-        return editor_get_patch(target, lane, parameter, value);
+    if (scope == SYNTH_EDITOR_SCOPE_PATCH ||
+        scope == SYNTH_EDITOR_SCOPE_FACTORY_PATCH) {
+        return editor_get_patch(target, lane, parameter,
+            scope == SYNTH_EDITOR_SCOPE_FACTORY_PATCH, value);
     }
-    if (scope == SYNTH_EDITOR_SCOPE_BANK) {
-        return editor_get_bank(target, parameter, value);
+    if (scope == SYNTH_EDITOR_SCOPE_BANK ||
+        scope == SYNTH_EDITOR_SCOPE_FACTORY_BANK) {
+        return editor_get_bank(target, parameter,
+            scope == SYNTH_EDITOR_SCOPE_FACTORY_BANK, value);
     }
     if (scope == SYNTH_EDITOR_SCOPE_GLOBAL) {
         if (parameter >= SYNTH_EDITOR_GLOBAL_PARAMETER_COUNT) return false;
@@ -2628,7 +3045,7 @@ bool synth_editor_get(const synth_t *synth, uint8_t scope, uint8_t target,
     return false;
 }
 
-bool synth_editor_set(synth_t *synth, uint8_t scope, uint8_t target,
+bool synth_editor_set(synth_t *synth, uint8_t scope, uint16_t target,
                       uint8_t lane, uint8_t parameter, uint16_t value) {
     if (scope == SYNTH_EDITOR_SCOPE_PATCH) {
         if (target >= scene_count * bank_count) return false;
@@ -2836,14 +3253,16 @@ bool synth_editor_set(synth_t *synth, uint8_t scope, uint8_t target,
     return false;
 }
 
-bool synth_editor_commit(const synth_t *synth, uint8_t scope, uint8_t target) {
+bool synth_editor_commit(const synth_t *synth, uint8_t scope, uint16_t target) {
     if (scope == SYNTH_EDITOR_SCOPE_PATCH && target == active_patch_id) {
-        bool ok = preset_store_save(target, &active_patch, sizeof(active_patch));
+        bool ok = preset_store_save(preset_store_patch_key(target),
+                                    &active_patch, sizeof(active_patch));
         if (ok) active_patch_dirty = false;
         return ok;
     }
     if (scope == SYNTH_EDITOR_SCOPE_BANK && target == active_bank_id) {
-        bool ok = preset_store_save(static_cast<uint16_t>(128u + target),
+        bool ok = preset_store_save(
+                                    preset_store_bank_key(static_cast<uint8_t>(target)),
                                     &active_bank, sizeof(active_bank));
         if (ok) active_bank_dirty = false;
         return ok;
@@ -2862,14 +3281,14 @@ bool synth_editor_commit(const synth_t *synth, uint8_t scope, uint8_t target) {
     return false;
 }
 
-bool synth_editor_revert(synth_t *synth, uint8_t scope, uint8_t target) {
+bool synth_editor_revert(synth_t *synth, uint8_t scope, uint16_t target) {
     if (scope == SYNTH_EDITOR_SCOPE_PATCH && target == active_patch_id) {
-        load_active_patch(target);
-        apply_scenes(target);
+        load_active_patch(static_cast<uint8_t>(target));
+        apply_scenes(static_cast<uint8_t>(target));
         return true;
     }
     if (scope == SYNTH_EDITOR_SCOPE_BANK && target == active_bank_id) {
-        load_active_bank(target);
+        load_active_bank(static_cast<uint8_t>(target));
         return true;
     }
     if (scope == SYNTH_EDITOR_SCOPE_GLOBAL) {
@@ -2891,11 +3310,13 @@ bool synth_editor_revert(synth_t *synth, uint8_t scope, uint8_t target) {
     return false;
 }
 
-bool synth_editor_restore(synth_t *synth, uint8_t scope, uint8_t target) {
+bool synth_editor_restore(synth_t *synth, uint8_t scope, uint16_t target) {
     uint16_t key;
-    if (scope == SYNTH_EDITOR_SCOPE_PATCH && target < 128u) key = target;
-    else if (scope == SYNTH_EDITOR_SCOPE_BANK && target < 8u) {
-        key = static_cast<uint16_t>(128u + target);
+    if (scope == SYNTH_EDITOR_SCOPE_PATCH && target < PRESET_STORE_PATCH_COUNT) {
+        key = preset_store_patch_key(target);
+    } else if (scope == SYNTH_EDITOR_SCOPE_BANK &&
+               target < PRESET_STORE_BANK_COUNT) {
+        key = preset_store_bank_key(static_cast<uint8_t>(target));
     } else if (scope == SYNTH_EDITOR_SCOPE_GLOBAL) {
         key = PRESET_STORE_GLOBAL_KEY;
     } else {
