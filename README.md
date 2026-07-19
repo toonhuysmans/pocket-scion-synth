@@ -11,7 +11,7 @@ and lead use independent PRA32-U timbres while sharing the final effects stage.
 The previous [v2.3.0 single-timbre release](https://github.com/toonhuysmans/pocket-scion-synth/releases/tag/v2.3.0)
 remains available as a rollback option.
 
-[![Watch the video](https://img.youtube.com/vi/5qdIYkmIK2Y/maxresdefault.jpg)](https://youtu.be/5qdIYkmIK2Y)
+[![Watch the video](https://img.youtube.com/vi/fdCGtOZ-8es/maxresdefault.jpg)](https://youtu.be/fdCGtOZ-8es)
 
 This is an independent community project. It is not affiliated with or
 endorsed by Instruō. Pocket SCION and Instruō are trademarks of their
