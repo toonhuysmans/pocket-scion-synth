@@ -18,7 +18,7 @@
 #define SYNTH_EDITOR_SCENE_PARAMETER_COUNT 47u
 #define SYNTH_EDITOR_PATCH_SHARED_COUNT 113u
 #define SYNTH_EDITOR_BANK_PARAMETER_COUNT 19u
-#define SYNTH_EDITOR_GLOBAL_PARAMETER_COUNT 7u
+#define SYNTH_EDITOR_GLOBAL_PARAMETER_COUNT 18u
 
 typedef struct {
     uint32_t frames_left;
@@ -68,6 +68,17 @@ typedef struct synth {
     uint8_t sequence_step;
     uint8_t sequence_bar;
     uint8_t sensor_stats_valid;
+    uint8_t sensor_window_size;
+    uint8_t sensor_adaptive_percent;
+    uint8_t sensor_pressure_smoothing;
+    uint8_t sensor_expression_smoothing;
+    uint8_t sensor_variation_gain_tenths;
+    uint8_t sensor_transient_gain_percent;
+    uint8_t sensor_transient_decay_percent;
+    uint8_t sensor_calibration_learning;
+    uint8_t sensor_calibration_recovery_tenths_percent;
+    uint16_t sensor_minimum_interval_us;
+    uint16_t sensor_activity_timeout_ms;
     uint8_t euclid_steps[3];
     uint8_t euclid_pulses[3];
     uint8_t euclid_rotation[3];

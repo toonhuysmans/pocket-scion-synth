@@ -15,6 +15,12 @@ let activeTab: Tab = "bass";
 let dirty = new Set<"patch" | "bank" | "globals">();
 let sensorTimer: number | undefined;
 let sensorSnapshotSupported: boolean | undefined;
+interface SensorSample { time: number; values: number[] }
+let sensorHistory: SensorSample[] = [];
+let sensorGraphPaused = false;
+let sensorGraphWindowMs = 30000;
+let sensorWindowRate = 0;
+let sensorWindowRateBaseline: { time: number; counter: number } | undefined;
 let loadGeneration = 0;
 const sendTimers = new Map<string, number>();
 let parameterOutputRefreshers: (() => void)[] = [];
@@ -87,6 +93,10 @@ async function loadCurrent(target = patchId(), selectDevice = true): Promise<voi
     }
     const globals: number[] = [];
     for (const parameter of globalParameters) {
+      if (parameter.id >= capabilities.globalParameters) {
+        globals[parameter.id] = parameter.min;
+        continue;
+      }
       globals[parameter.id] = await requestValue(Scope.Global, 0, 0, parameter.id);
       if (generation !== loadGeneration) throw new LoadSuperseded();
     }
@@ -152,8 +162,11 @@ function renderScalePresetPicker(block: HTMLElement, values: number[]): void {
   bar.append(label, apply); block.append(bar);
 }
 
-function renderParameters(parameters: Parameter[], values: number[], scope: "patch" | "bank" | "globals", lane: number): void {
-  editor.classList.remove("empty"); editor.replaceChildren(); parameterOutputRefreshers = [];
+function renderParameters(parameters: Parameter[], values: number[], scope: "patch" | "bank" | "globals", lane: number,
+  destination: HTMLElement = editor, replace = true): void {
+  editor.classList.remove("empty");
+  if (replace) destination.replaceChildren();
+  parameterOutputRefreshers = [];
   for (const [section, items] of grouped(parameters)) {
     const block = document.createElement("section"); block.className = "parameter-section";
     const heading = document.createElement("h2"); heading.textContent = section; block.append(heading);
@@ -246,7 +259,7 @@ function renderParameters(parameters: Parameter[], values: number[], scope: "pat
       const grid = section === "Motif" ? grids[Math.floor((parameter.id - 7) / 4)] : grids[0];
       control.append(label, knob, output); grid.append(control);
     }
-    editor.append(block);
+    destination.append(block);
   }
 }
 
@@ -258,6 +271,174 @@ function updateSensorMeters(values: number[]): void {
     meter.querySelector("output")!.textContent = `${percent}%`;
     (meter.querySelector(".meter-fill") as HTMLElement).style.width = `${percent}%`;
   });
+  if (!sensorGraphPaused && values.length >= 4) {
+    const now = performance.now();
+    sensorHistory.push({ time: now, values: [...values] });
+    sensorHistory = sensorHistory.filter(sample => sample.time >= now - 60000);
+  }
+  if (values.length >= 14) updateSensorDiagnostics(values);
+  drawSensorGraph();
+}
+
+function updateSensorDiagnostics(values: number[]): void {
+  const statusValue = values[10];
+  const windowCounter = statusValue >> 3 & 0xff;
+  const now = performance.now();
+  if (!sensorWindowRateBaseline) {
+    sensorWindowRateBaseline = { time: now, counter: windowCounter };
+  } else if (now - sensorWindowRateBaseline.time >= 500) {
+    const elapsed = (now - sensorWindowRateBaseline.time) / 1000;
+    const windows = (windowCounter - sensorWindowRateBaseline.counter + 256) & 0xff;
+    sensorWindowRate = windows / elapsed;
+    sensorWindowRateBaseline = { time: now, counter: windowCounter };
+  }
+  const diagnostics = [
+    (statusValue & 1) !== 0 ? "Learning" : "Frozen",
+    (statusValue & 2) !== 0 ? "Active" : "Idle",
+    `${sensorWindowRate.toFixed(1)} Hz`,
+    String(values[11]), String(values[12]),
+    values[13] >= 16383 ? "No signal" : `${values[13]} ms`,
+  ];
+  diagnostics.forEach((text, index) => {
+    const output = editor.querySelector<HTMLOutputElement>(`[data-diagnostic="${index}"] output`);
+    if (output) output.textContent = text;
+  });
+}
+
+const sensorGraphSeries = [
+  { name: "Pressure", color: "#d9b76d" },
+  { name: "Expression", color: "#76c893" },
+  { name: "Transient", color: "#e47f72" },
+  { name: "Pitch motion", color: "#8eb7e8" },
+];
+
+function drawSensorGraph(): void {
+  const canvas = editor.querySelector<HTMLCanvasElement>("#sensor-graph");
+  if (!canvas) return;
+  const width = Math.max(320, Math.floor(canvas.clientWidth));
+  const height = Math.max(180, Math.floor(canvas.clientHeight));
+  const ratio = window.devicePixelRatio || 1;
+  if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
+    canvas.width = width * ratio; canvas.height = height * ratio;
+  }
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, width, height);
+  const left = 38, right = 10, top = 12, bottom = 24;
+  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  context.font = "10px Inter, system-ui, sans-serif";
+  context.fillStyle = "#7f8979";
+  context.strokeStyle = "#2e382b";
+  context.lineWidth = 1;
+  for (let step = 0; step <= 4; step++) {
+    const y = top + plotHeight * step / 4;
+    context.beginPath(); context.moveTo(left, y); context.lineTo(width - right, y); context.stroke();
+    context.fillText(`${100 - step * 25}%`, 2, y + 3);
+  }
+  for (let step = 0; step <= 3; step++) {
+    const x = left + plotWidth * step / 3;
+    context.beginPath(); context.moveTo(x, top); context.lineTo(x, top + plotHeight); context.stroke();
+    const seconds = Math.round((sensorGraphWindowMs / 1000) * (1 - step / 3));
+    context.fillText(step === 3 ? "now" : `−${seconds}s`, x - (step === 3 ? 18 : 10), height - 5);
+  }
+  const endTime = sensorGraphPaused && sensorHistory.length
+    ? sensorHistory[sensorHistory.length - 1].time : performance.now();
+  const startTime = endTime - sensorGraphWindowMs;
+  sensorGraphSeries.forEach((series, seriesIndex) => {
+    context.beginPath(); context.strokeStyle = series.color; context.lineWidth = 1.8;
+    let started = false;
+    sensorHistory.forEach(sample => {
+      if (sample.time < startTime || sample.time > endTime) return;
+      const x = left + (sample.time - startTime) / sensorGraphWindowMs * plotWidth;
+      const y = top + (1 - Math.max(0, Math.min(1000, sample.values[seriesIndex])) / 1000) * plotHeight;
+      if (!started) { context.moveTo(x, y); started = true; } else context.lineTo(x, y);
+    });
+    if (started) context.stroke();
+  });
+  drawCalibrationGraph("interval-calibration-graph", 4, 5, 6,
+    value => value * 0.1, value => `${value.toFixed(value < 10 ? 2 : 1)} ms`);
+  drawCalibrationGraph("variation-calibration-graph", 7, 8, 9,
+    value => value / 100, value => `${value.toFixed(2)}%`);
+}
+
+function drawCalibrationGraph(canvasId: string, currentIndex: number,
+  lowIndex: number, highIndex: number, transform: (value: number) => number,
+  format: (value: number) => string): void {
+  const canvas = editor.querySelector<HTMLCanvasElement>(`#${canvasId}`);
+  if (!canvas) return;
+  const width = Math.max(240, Math.floor(canvas.clientWidth));
+  const height = Math.max(150, Math.floor(canvas.clientHeight));
+  const ratio = window.devicePixelRatio || 1;
+  if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
+    canvas.width = width * ratio; canvas.height = height * ratio;
+  }
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, width, height);
+  const endTime = sensorGraphPaused && sensorHistory.length
+    ? sensorHistory[sensorHistory.length - 1].time : performance.now();
+  const startTime = endTime - sensorGraphWindowMs;
+  const samples = sensorHistory.filter(sample =>
+    sample.time >= startTime && sample.time <= endTime &&
+    sample.values.length > 10 && sample.values.length > highIndex &&
+    (sample.values[10] & 4) !== 0);
+  context.font = "10px Inter, system-ui, sans-serif";
+  if (!samples.length) {
+    context.fillStyle = "#7f8979";
+    context.fillText("Calibration diagnostics require the updated firmware.", 12, 25);
+    return;
+  }
+  const latest = samples[samples.length - 1];
+  const summary = canvas.closest(".calibration-chart")?.querySelector("output");
+  if (summary) summary.textContent =
+    `${format(transform(latest.values[currentIndex]))} · range ${format(transform(latest.values[lowIndex]))}–${format(transform(latest.values[highIndex]))}`;
+
+  const left = 50, right = 10, top = 10, bottom = 22;
+  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  const allValues = samples.flatMap(sample => [currentIndex, lowIndex, highIndex]
+    .map(index => transform(sample.values[index])));
+  let minimum = Math.min(...allValues), maximum = Math.max(...allValues);
+  const padding = Math.max((maximum - minimum) * 0.12,
+    Math.max(Math.abs(maximum), 0.01) * 0.03);
+  minimum = Math.max(0, minimum - padding); maximum += padding;
+  if (maximum <= minimum) maximum = minimum + 1;
+  const point = (sample: SensorSample, index: number): [number, number] => [
+    left + (sample.time - startTime) / sensorGraphWindowMs * plotWidth,
+    top + (maximum - transform(sample.values[index])) /
+      (maximum - minimum) * plotHeight,
+  ];
+  context.strokeStyle = "#2e382b"; context.fillStyle = "#7f8979";
+  context.lineWidth = 1;
+  for (let step = 0; step <= 2; step++) {
+    const y = top + plotHeight * step / 2;
+    context.beginPath(); context.moveTo(left, y); context.lineTo(width - right, y); context.stroke();
+    context.fillText(format(maximum - (maximum - minimum) * step / 2), 2, y + 3);
+  }
+  context.beginPath();
+  samples.forEach((sample, index) => {
+    const [x, y] = point(sample, highIndex);
+    if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+  });
+  [...samples].reverse().forEach(sample => {
+    const [x, y] = point(sample, lowIndex); context.lineTo(x, y);
+  });
+  context.closePath(); context.fillStyle = "rgba(113, 143, 87, .24)"; context.fill();
+  [lowIndex, highIndex].forEach(index => {
+    context.beginPath(); context.strokeStyle = "#718f57"; context.lineWidth = 1;
+    samples.forEach((sample, sampleIndex) => {
+      const [x, y] = point(sample, index);
+      if (sampleIndex === 0) context.moveTo(x, y); else context.lineTo(x, y);
+    });
+    context.stroke();
+  });
+  context.beginPath(); context.strokeStyle = "#e3bf72"; context.lineWidth = 1.8;
+  samples.forEach((sample, index) => {
+    const [x, y] = point(sample, currentIndex);
+    if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+  });
+  context.stroke();
 }
 
 async function pollSensor(): Promise<void> {
@@ -289,12 +470,82 @@ async function pollSensor(): Promise<void> {
 
 function renderSensor(): void {
   editor.classList.remove("empty"); editor.replaceChildren();
+  sensorWindowRateBaseline = undefined; sensorWindowRate = 0;
+  const graph = document.createElement("section"); graph.className = "sensor-graph-panel";
+  const graphHeader = document.createElement("div"); graphHeader.className = "sensor-graph-header";
+  const graphTitle = document.createElement("div");
+  graphTitle.innerHTML = "<h2>Sensor dynamics</h2><p>Processed sensor parameters over time</p>";
+  const graphTools = document.createElement("div"); graphTools.className = "sensor-graph-tools";
+  const duration = document.createElement("select"); duration.setAttribute("aria-label", "Graph time range");
+  [[10000, "10 seconds"], [30000, "30 seconds"], [60000, "60 seconds"]].forEach(([value, label]) =>
+    duration.add(new Option(String(label), String(value))));
+  duration.value = String(sensorGraphWindowMs);
+  duration.addEventListener("change", () => { sensorGraphWindowMs = Number(duration.value); drawSensorGraph(); });
+  const pause = document.createElement("button"); pause.textContent = sensorGraphPaused ? "Resume" : "Pause";
+  pause.addEventListener("click", () => { sensorGraphPaused = !sensorGraphPaused; pause.textContent = sensorGraphPaused ? "Resume" : "Pause"; drawSensorGraph(); });
+  const clear = document.createElement("button"); clear.textContent = "Clear";
+  clear.addEventListener("click", () => { sensorHistory = []; drawSensorGraph(); });
+  const reset = document.createElement("button"); reset.textContent = "Reset calibration";
+  reset.disabled = (capabilities?.globalParameters ?? 0) < 17;
+  reset.addEventListener("click", () => void run(async () => {
+    await connection.request(Command.Set, addressed(Scope.Global, 0, [0, 16, ...valueBytes(2)]));
+    state.globals[16] = 1;
+    sensorHistory = [];
+    setStatus("Sensor calibration reset; adaptive learning is active.");
+  }, "Resetting sensor calibration…"));
+  graphTools.append(duration, pause, clear, reset); graphHeader.append(graphTitle, graphTools);
+  const canvas = document.createElement("canvas"); canvas.id = "sensor-graph";
+  graph.append(graphHeader, canvas);
+
+  const calibrationGraphs = document.createElement("section");
+  calibrationGraphs.className = "calibration-graphs";
+  const calibrationHeading = document.createElement("div");
+  calibrationHeading.className = "calibration-heading";
+  calibrationHeading.innerHTML = "<h2>Learned calibration</h2><p>Gold is the current measurement; the green band is the learned minimum–maximum range.</p>";
+  const calibrationGrid = document.createElement("div");
+  calibrationGrid.className = "calibration-graph-grid";
+  [["Interval mean", "Pressure is derived from position inside this interval range.", "interval-calibration-graph"],
+   ["Relative variation", "Expression is derived from position inside this variation range.", "variation-calibration-graph"]]
+    .forEach(([title, description, id]) => {
+      const chart = document.createElement("article"); chart.className = "calibration-chart";
+      const heading = document.createElement("h3"); heading.textContent = title;
+      const copy = document.createElement("p"); copy.textContent = description;
+      const output = document.createElement("output"); output.textContent = "Waiting for sensor data…";
+      const chartCanvas = document.createElement("canvas"); chartCanvas.id = id;
+      chart.append(heading, copy, output, chartCanvas); calibrationGrid.append(chart);
+    });
+  calibrationGraphs.append(calibrationHeading, calibrationGrid);
+
+  const diagnostics = document.createElement("div"); diagnostics.className = "sensor-diagnostics";
+  ["Calibration", "Input", "Analysis windows", "Dropped edges", "Rejected fast edges", "Last edge"]
+    .forEach((name, index) => {
+      const item = document.createElement("div"); item.className = "sensor-diagnostic";
+      item.dataset.diagnostic = String(index);
+      const label = document.createElement("span"); label.textContent = name;
+      const output = document.createElement("output"); output.textContent = "—";
+      item.append(label, output); diagnostics.append(item);
+    });
   const grid = document.createElement("div"); grid.className = "sensor-grid";
   ["Pressure / proximity", "Variation / expression", "Transient", "Pitch motion"].forEach((name, id) => {
     const meter = document.createElement("div"); meter.className = "meter"; meter.dataset.sensor = String(id);
-    meter.innerHTML = `<h2>${name}</h2><output>0%</output><div class="meter-track"><div class="meter-fill"></div></div>`; grid.append(meter);
+    const heading = document.createElement("h2");
+    const dot = document.createElement("span"); dot.className = "meter-dot";
+    dot.style.setProperty("--series-colour", sensorGraphSeries[id].color);
+    heading.append(dot, name);
+    const output = document.createElement("output"); output.textContent = "0%";
+    const track = document.createElement("div"); track.className = "meter-track";
+    const fill = document.createElement("div"); fill.className = "meter-fill"; track.append(fill);
+    meter.append(heading, output, track); grid.append(meter);
   });
-  editor.append(grid);
+  editor.append(graph, calibrationGraphs);
+  const calibrationParameters = globalParameters.filter(parameter =>
+    parameter.id >= 7 && parameter.id < (capabilities?.globalParameters ?? 0));
+  if (calibrationParameters.length) {
+    renderParameters(calibrationParameters, state.globals, "globals", 0,
+      editor, false);
+  }
+  editor.append(diagnostics, grid);
+  drawSensorGraph();
   void pollSensor();
 }
 
@@ -312,7 +563,9 @@ function render(): void {
   else if (activeTab === "articulation") renderParameters(patchSharedParameters.filter(parameter => parameter.id >= 35 && parameter.id < 99), state.shared, "patch", 3);
   else if (activeTab === "motion") renderParameters(patchSharedParameters.filter(parameter => parameter.id >= 101), state.shared, "patch", 3);
   else if (activeTab === "bank") renderParameters(bankParameters, state.bank, "bank", 0);
-  else if (activeTab === "globals") renderParameters(globalParameters, state.globals, "globals", 0);
+  else if (activeTab === "globals") renderParameters(
+    globalParameters.filter(parameter => parameter.id < capabilities!.globalParameters),
+    state.globals, "globals", 0);
   else renderSensor();
 }
 

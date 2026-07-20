@@ -282,10 +282,23 @@ struct global_record_t {
     uint8_t midi_multichannel;
     uint8_t led_brightness;
     uint8_t reserved;
+    uint16_t sensor_minimum_interval_us;
+    uint16_t sensor_activity_timeout_ms;
+    uint8_t sensor_window_size;
+    uint8_t sensor_adaptive_percent;
+    uint8_t sensor_pressure_smoothing;
+    uint8_t sensor_expression_smoothing;
+    uint8_t sensor_variation_gain_tenths;
+    uint8_t sensor_transient_gain_percent;
+    uint8_t sensor_transient_decay_percent;
+    uint8_t sensor_calibration_learning;
+    uint8_t sensor_calibration_recovery_tenths_percent;
 };
 
 static_assert(sizeof(patch_record_t) == 236u,
               "Patch record must fill but not exceed one flash payload");
+static_assert(sizeof(global_record_t) == 22u,
+              "Global record layout must preserve its eight-byte prefix");
 
 patch_record_t active_patch;
 bank_record_t active_bank;
@@ -295,6 +308,95 @@ bool active_patch_dirty = false;
 bool active_bank_dirty = false;
 bool globals_dirty = false;
 uint8_t editor_led_brightness = 127u;
+
+global_record_t default_global_record() {
+    return {
+        45u, 4u, 7u, 3u, 0u, 0u, 127u, 0u,
+        2500u, 1500u, 10u, 78u, 18u, 22u, 80u, 100u, 24u, 1u, 10u,
+    };
+}
+
+void reset_sensor_calibration(synth_t *synth) {
+    synth->previous_mean_us = 0.0f;
+    synth->adaptive_mean_low_us = 0.0f;
+    synth->adaptive_mean_high_us = 0.0f;
+    synth->adaptive_variation_low = 0.0f;
+    synth->adaptive_variation_high = 0.0f;
+}
+
+void apply_global_record(synth_t *synth, const global_record_t &globals) {
+    synth->root_note = static_cast<uint8_t>(
+        globals.root_note < 24u ? 24u :
+        globals.root_note > 72u ? 72u : globals.root_note);
+    synth->sensitivity_index = static_cast<uint8_t>(
+        globals.sensitivity_index > 7u ? 7u : globals.sensitivity_index);
+    synth->volume_index = static_cast<uint8_t>(
+        globals.volume_index > 11u ? 11u : globals.volume_index);
+    synth->duration_index = static_cast<uint8_t>(
+        globals.duration_index > 7u ? 7u : globals.duration_index);
+    synth->pitch_bend_enabled = globals.pitch_bend_enabled != 0u;
+    synth->midi_multichannel = globals.midi_multichannel != 0u;
+    editor_led_brightness = globals.led_brightness;
+
+    synth->sensor_window_size = static_cast<uint8_t>(
+        globals.sensor_window_size < 4u ? 4u :
+        globals.sensor_window_size > 24u ? 24u : globals.sensor_window_size);
+    synth->sensor_minimum_interval_us = static_cast<uint16_t>(
+        globals.sensor_minimum_interval_us < 500u ? 500u :
+        globals.sensor_minimum_interval_us > 10000u ? 10000u :
+        globals.sensor_minimum_interval_us);
+    synth->sensor_activity_timeout_ms = static_cast<uint16_t>(
+        globals.sensor_activity_timeout_ms < 100u ? 100u :
+        globals.sensor_activity_timeout_ms > 10000u ? 10000u :
+        globals.sensor_activity_timeout_ms);
+    synth->sensor_adaptive_percent = static_cast<uint8_t>(
+        globals.sensor_adaptive_percent > 100u ? 100u :
+        globals.sensor_adaptive_percent);
+    synth->sensor_pressure_smoothing = static_cast<uint8_t>(
+        globals.sensor_pressure_smoothing < 1u ? 1u :
+        globals.sensor_pressure_smoothing > 100u ? 100u :
+        globals.sensor_pressure_smoothing);
+    synth->sensor_expression_smoothing = static_cast<uint8_t>(
+        globals.sensor_expression_smoothing < 1u ? 1u :
+        globals.sensor_expression_smoothing > 100u ? 100u :
+        globals.sensor_expression_smoothing);
+    synth->sensor_variation_gain_tenths = static_cast<uint8_t>(
+        globals.sensor_variation_gain_tenths < 1u ? 1u :
+        globals.sensor_variation_gain_tenths > 200u ? 200u :
+        globals.sensor_variation_gain_tenths);
+    synth->sensor_transient_gain_percent = static_cast<uint8_t>(
+        globals.sensor_transient_gain_percent > 200u ? 200u :
+        globals.sensor_transient_gain_percent);
+    synth->sensor_transient_decay_percent = static_cast<uint8_t>(
+        globals.sensor_transient_decay_percent < 1u ? 1u :
+        globals.sensor_transient_decay_percent > 100u ? 100u :
+        globals.sensor_transient_decay_percent);
+    synth->sensor_calibration_learning =
+        globals.sensor_calibration_learning != 0u;
+    synth->sensor_calibration_recovery_tenths_percent = static_cast<uint8_t>(
+        globals.sensor_calibration_recovery_tenths_percent < 1u ? 1u :
+        globals.sensor_calibration_recovery_tenths_percent > 50u ? 50u :
+        globals.sensor_calibration_recovery_tenths_percent);
+    sensor_configure(synth->sensor_window_size,
+                     synth->sensor_minimum_interval_us,
+                     synth->sensor_activity_timeout_ms);
+}
+
+global_record_t capture_global_record(const synth_t *synth) {
+    return {
+        synth->root_note, synth->sensitivity_index, synth->volume_index,
+        synth->duration_index, synth->pitch_bend_enabled,
+        synth->midi_multichannel, editor_led_brightness, 0u,
+        synth->sensor_minimum_interval_us, synth->sensor_activity_timeout_ms,
+        synth->sensor_window_size, synth->sensor_adaptive_percent,
+        synth->sensor_pressure_smoothing, synth->sensor_expression_smoothing,
+        synth->sensor_variation_gain_tenths,
+        synth->sensor_transient_gain_percent,
+        synth->sensor_transient_decay_percent,
+        synth->sensor_calibration_learning,
+        synth->sensor_calibration_recovery_tenths_percent,
+    };
+}
 
 struct sensor_route_t;
 scene_t make_generated_lane_scene(uint8_t id, uint8_t lane);
@@ -2166,26 +2268,10 @@ void synth_init(synth_t *synth) {
     synth->sensitivity_index = 4;
     synth->volume_index = 7;
     synth->duration_index = 3;
-    global_record_t globals = {
-        synth->root_note, synth->sensitivity_index, synth->volume_index,
-        synth->duration_index, synth->pitch_bend_enabled,
-        synth->midi_multichannel, 127u, 0u,
-    };
-    if (preset_store_load(PRESET_STORE_GLOBAL_KEY, &globals,
-                          sizeof(globals))) {
-        synth->root_note = static_cast<uint8_t>(
-            globals.root_note < 24u ? 24u :
-            globals.root_note > 72u ? 72u : globals.root_note);
-        synth->sensitivity_index = static_cast<uint8_t>(
-            globals.sensitivity_index > 7u ? 7u : globals.sensitivity_index);
-        synth->volume_index = static_cast<uint8_t>(
-            globals.volume_index > 11u ? 11u : globals.volume_index);
-        synth->duration_index = static_cast<uint8_t>(
-            globals.duration_index > 7u ? 7u : globals.duration_index);
-        synth->pitch_bend_enabled = globals.pitch_bend_enabled != 0u;
-        synth->midi_multichannel = globals.midi_multichannel != 0u;
-        editor_led_brightness = globals.led_brightness;
-    }
+    global_record_t globals = default_global_record();
+    (void)preset_store_load_prefix(PRESET_STORE_GLOBAL_KEY, &globals,
+                                   sizeof(globals), NULL);
+    apply_global_record(synth, globals);
     status_rgb_set_brightness(editor_led_brightness);
     synth->master_gain_q15 = volume_gain_q15[synth->volume_index];
     bass_engine.initialize();
@@ -2450,20 +2536,25 @@ static void process_sensor_state(synth_t *synth, const sensor_stats_t *stats,
         synth->adaptive_mean_high_us = mean_us;
         synth->adaptive_variation_low = variation;
         synth->adaptive_variation_high = variation + 0.003f;
-    } else {
-        // Fast expansion learns a new gesture; very slow contraction follows
-        // long-term drift. This works for both touch and quiet plant signals.
-        float low_rate = mean_us < synth->adaptive_mean_low_us ? 0.18f : 0.0015f;
-        float high_rate = mean_us > synth->adaptive_mean_high_us ? 0.18f : 0.0015f;
+    } else if (synth->sensor_calibration_learning != 0u) {
+        // Fast expansion learns a new gesture; configurable contraction
+        // recovers from temporary spikes without chasing every window.
+        const float recovery_rate = static_cast<float>(
+            synth->sensor_calibration_recovery_tenths_percent) * 0.001f;
+        float low_rate = mean_us < synth->adaptive_mean_low_us ?
+            0.18f : recovery_rate;
+        float high_rate = mean_us > synth->adaptive_mean_high_us ?
+            0.18f : recovery_rate;
         synth->adaptive_mean_low_us +=
             (mean_us - synth->adaptive_mean_low_us) * low_rate;
         synth->adaptive_mean_high_us +=
             (mean_us - synth->adaptive_mean_high_us) * high_rate;
 
-        float variation_low_rate =
-            variation < synth->adaptive_variation_low ? 0.14f : 0.0020f;
-        float variation_high_rate =
-            variation > synth->adaptive_variation_high ? 0.14f : 0.0020f;
+        const float variation_recovery_rate = recovery_rate * 1.2f;
+        float variation_low_rate = variation < synth->adaptive_variation_low ?
+            0.14f : variation_recovery_rate;
+        float variation_high_rate = variation > synth->adaptive_variation_high ?
+            0.14f : variation_recovery_rate;
         synth->adaptive_variation_low +=
             (variation - synth->adaptive_variation_low) * variation_low_rate;
         synth->adaptive_variation_high +=
@@ -2480,7 +2571,10 @@ static void process_sensor_state(synth_t *synth, const sensor_stats_t *stats,
     float adaptive_pressure = clampf(
         0.5f + (mean_mid - mean_us) / mean_span, 0.0f, 1.0f);
     float fixed_pressure = 1.0f - clampf(mean_us / 100000.0f, 0.0f, 1.0f);
-    float raw_proximity = adaptive_pressure * 0.78f + fixed_pressure * 0.22f;
+    const float adaptive_mix =
+        static_cast<float>(synth->sensor_adaptive_percent) * 0.01f;
+    float raw_proximity = adaptive_pressure * adaptive_mix +
+        fixed_pressure * (1.0f - adaptive_mix);
 
     float variation_span = std::fmax(
         synth->adaptive_variation_high - synth->adaptive_variation_low,
@@ -2488,20 +2582,29 @@ static void process_sensor_state(synth_t *synth, const sensor_stats_t *stats,
     float adaptive_expression = clampf(
         (variation - synth->adaptive_variation_low) / variation_span,
         0.0f, 1.0f);
-    float fixed_expression = clampf(variation * 8.0f, 0.0f, 1.0f);
-    float raw_expression = adaptive_expression * 0.82f + fixed_expression * 0.18f;
+    float fixed_expression = clampf(
+        variation * static_cast<float>(synth->sensor_variation_gain_tenths) *
+            0.1f,
+        0.0f, 1.0f);
+    float raw_expression = adaptive_expression * adaptive_mix +
+        fixed_expression * (1.0f - adaptive_mix);
 
     float pressure_step = std::fabs(raw_proximity - synth->sensor_proximity);
     float mean_step = synth->previous_mean_us > 0.0f ?
         std::fabs(synth->previous_mean_us - mean_us) / mean_us : 0.0f;
-    float raw_transient = clampf(pressure_step * 2.8f + mean_step * 8.0f,
-                                 0.0f, 1.0f);
+    float raw_transient = clampf(
+        (pressure_step * 2.8f + mean_step * 8.0f) *
+            static_cast<float>(synth->sensor_transient_gain_percent) * 0.01f,
+        0.0f, 1.0f);
     synth->sensor_proximity +=
-        (raw_proximity - synth->sensor_proximity) * 0.18f;
+        (raw_proximity - synth->sensor_proximity) *
+            static_cast<float>(synth->sensor_pressure_smoothing) * 0.01f;
     synth->sensor_expression +=
-        (raw_expression - synth->sensor_expression) * 0.22f;
+        (raw_expression - synth->sensor_expression) *
+            static_cast<float>(synth->sensor_expression_smoothing) * 0.01f;
     // Fast attack and decay preserve accents without creating chatter.
-    float transient_rate = raw_transient > synth->sensor_transient ? 0.48f : 0.24f;
+    float transient_rate = raw_transient > synth->sensor_transient ? 0.48f :
+        static_cast<float>(synth->sensor_transient_decay_percent) * 0.01f;
     synth->sensor_transient +=
         (raw_transient - synth->sensor_transient) * transient_rate;
     }
@@ -3026,7 +3129,20 @@ bool synth_editor_get(const synth_t *synth, uint8_t scope, uint16_t target,
             case 3: *value = synth->duration_index; break;
             case 4: *value = synth->pitch_bend_enabled; break;
             case 5: *value = synth->midi_multichannel; break;
-            default: *value = editor_led_brightness; break;
+            case 6: *value = editor_led_brightness; break;
+            case 7: *value = synth->sensor_window_size; break;
+            case 8: *value = synth->sensor_minimum_interval_us; break;
+            case 9: *value = synth->sensor_adaptive_percent; break;
+            case 10: *value = synth->sensor_pressure_smoothing; break;
+            case 11: *value = synth->sensor_expression_smoothing; break;
+            case 12: *value = synth->sensor_variation_gain_tenths; break;
+            case 13: *value = synth->sensor_transient_gain_percent; break;
+            case 14: *value = synth->sensor_transient_decay_percent; break;
+            case 15: *value = synth->sensor_activity_timeout_ms; break;
+            case 16: *value = synth->sensor_calibration_learning; break;
+            default:
+                *value = synth->sensor_calibration_recovery_tenths_percent;
+                break;
         }
         return true;
     }
@@ -3245,6 +3361,52 @@ bool synth_editor_set(synth_t *synth, uint8_t scope, uint16_t target,
             case 6: if (value > 127u) return false;
                     editor_led_brightness = static_cast<uint8_t>(value);
                     status_rgb_set_brightness(editor_led_brightness); break;
+            case 7: if (value < 4u || value > 24u) return false;
+                    synth->sensor_window_size = static_cast<uint8_t>(value);
+                    sensor_configure(synth->sensor_window_size,
+                        synth->sensor_minimum_interval_us,
+                        synth->sensor_activity_timeout_ms); break;
+            case 8: if (value < 500u || value > 10000u) return false;
+                    synth->sensor_minimum_interval_us = value;
+                    sensor_configure(synth->sensor_window_size,
+                        synth->sensor_minimum_interval_us,
+                        synth->sensor_activity_timeout_ms); break;
+            case 9: if (value > 100u) return false;
+                    synth->sensor_adaptive_percent =
+                        static_cast<uint8_t>(value); break;
+            case 10: if (value < 1u || value > 100u) return false;
+                     synth->sensor_pressure_smoothing =
+                         static_cast<uint8_t>(value); break;
+            case 11: if (value < 1u || value > 100u) return false;
+                     synth->sensor_expression_smoothing =
+                         static_cast<uint8_t>(value); break;
+            case 12: if (value < 1u || value > 200u) return false;
+                     synth->sensor_variation_gain_tenths =
+                         static_cast<uint8_t>(value); break;
+            case 13: if (value > 200u) return false;
+                     synth->sensor_transient_gain_percent =
+                         static_cast<uint8_t>(value); break;
+            case 14: if (value < 1u || value > 100u) return false;
+                     synth->sensor_transient_decay_percent =
+                         static_cast<uint8_t>(value); break;
+            case 15: if (value < 100u || value > 10000u) return false;
+                     synth->sensor_activity_timeout_ms = value;
+                     sensor_configure(synth->sensor_window_size,
+                         synth->sensor_minimum_interval_us,
+                         synth->sensor_activity_timeout_ms); break;
+            case 16:
+                     if (value > 2u) return false;
+                     if (value == 2u) {
+                         reset_sensor_calibration(synth);
+                         synth->sensor_calibration_learning = 1u;
+                     } else {
+                         synth->sensor_calibration_learning =
+                             static_cast<uint8_t>(value);
+                     }
+                     break;
+            case 17: if (value < 1u || value > 50u) return false;
+                     synth->sensor_calibration_recovery_tenths_percent =
+                         static_cast<uint8_t>(value); break;
             default: return false;
         }
         globals_dirty = true;
@@ -3268,11 +3430,7 @@ bool synth_editor_commit(const synth_t *synth, uint8_t scope, uint16_t target) {
         return ok;
     }
     if (scope == SYNTH_EDITOR_SCOPE_GLOBAL) {
-        global_record_t globals = {
-            synth->root_note, synth->sensitivity_index, synth->volume_index,
-            synth->duration_index, synth->pitch_bend_enabled,
-            synth->midi_multichannel, editor_led_brightness, 0u,
-        };
+        global_record_t globals = capture_global_record(synth);
         bool ok = preset_store_save(PRESET_STORE_GLOBAL_KEY, &globals,
                                     sizeof(globals));
         if (ok) globals_dirty = false;
@@ -3292,16 +3450,10 @@ bool synth_editor_revert(synth_t *synth, uint8_t scope, uint16_t target) {
         return true;
     }
     if (scope == SYNTH_EDITOR_SCOPE_GLOBAL) {
-        global_record_t globals = {45u, 4u, 7u, 3u, 0u, 0u, 127u, 0u};
-        (void)preset_store_load(PRESET_STORE_GLOBAL_KEY, &globals,
-                                sizeof(globals));
-        synth->root_note = globals.root_note;
-        synth->sensitivity_index = globals.sensitivity_index;
-        synth->volume_index = globals.volume_index;
-        synth->duration_index = globals.duration_index;
-        synth->pitch_bend_enabled = globals.pitch_bend_enabled;
-        synth->midi_multichannel = globals.midi_multichannel;
-        editor_led_brightness = globals.led_brightness;
+        global_record_t globals = default_global_record();
+        (void)preset_store_load_prefix(PRESET_STORE_GLOBAL_KEY, &globals,
+                                       sizeof(globals), NULL);
+        apply_global_record(synth, globals);
         status_rgb_set_brightness(editor_led_brightness);
         synth->master_gain_q15 = volume_gain_q15[synth->volume_index];
         globals_dirty = false;

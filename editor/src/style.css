@@ -65,7 +65,27 @@ nav button.active { background: #c9a665; color: #151914; border-color: #c9a665; 
 .danger button:last-child { border-color: #714a42; }
 #status { min-height: 50px; padding: 15px 3px 30px; color: #aab3a3; font-size: .84rem; }
 .sensor-grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.sensor-graph-panel { margin-bottom: 20px; padding: 15px; border: 1px solid #303a2d; border-radius: 11px; background: #0c100c; }
+.sensor-graph-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
+.sensor-graph-header p { color: #899383; font-size: .72rem; }
+.sensor-graph-tools { display: flex; flex-wrap: wrap; gap: 7px; }
+.sensor-graph-tools button, .sensor-graph-tools select { padding: 7px 9px; font-size: .75rem; }
+#sensor-graph { display: block; width: 100%; height: 250px; border-radius: 7px; background: rgba(8, 11, 8, .55); }
+.calibration-graphs { margin-bottom: 22px; padding: 15px; border: 1px solid #303a2d; border-radius: 11px; background: rgba(12, 16, 12, .62); }
+.calibration-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
+.calibration-heading p, .calibration-chart p { color: #899383; font-size: .72rem; line-height: 1.4; }
+.calibration-graph-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.calibration-chart { min-width: 0; padding: 12px; border: 1px solid #303a2d; border-radius: 9px; background: #0c100c; }
+.calibration-chart h3 { margin: 0 0 3px; font-size: .82rem; }
+.calibration-chart output { display: block; min-height: 1.4em; margin: 8px 0 5px; color: #d6b56f; font-size: .7rem; font-variant-numeric: tabular-nums; }
+.calibration-chart canvas { display: block; width: 100%; height: 180px; border-radius: 6px; background: rgba(8, 11, 8, .55); }
+.sensor-diagnostics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 9px; margin: 22px 0 14px; }
+.sensor-diagnostic { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid #303a2d; border-radius: 8px; background: #0c100c; }
+.sensor-diagnostic span { color: #899383; font-size: .67rem; }
+.sensor-diagnostic output { color: #d9b76d; font-size: .8rem; font-variant-numeric: tabular-nums; }
 .meter { background: #0c100c; border: 1px solid #303a2d; border-radius: 10px; padding: 15px; }
+.meter h2 { display: flex; align-items: center; gap: 7px; }
+.meter-dot { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--series-colour); box-shadow: 0 0 8px color-mix(in srgb, var(--series-colour) 55%, transparent); }
 .meter-track { height: 10px; background: #252c23; border-radius: 9px; overflow: hidden; margin-top: 12px; }
 .meter-fill { height: 100%; width: 0; background: linear-gradient(90deg, #718f57, #d4b76e); transition: width .12s linear; }
-@media (max-width: 760px) { header { align-items: start; flex-direction: column; } .connection { flex-wrap: wrap; } .guide-grid { grid-template-columns: 1fr; } .scale-preset-bar { align-items: stretch; flex-direction: column; } .motif-groups { grid-template-columns: 1fr; } .motif-grid { grid-template-columns: repeat(2, minmax(92px, 1fr)); } .file-tools, .danger { align-items: stretch; flex-direction: column; } .file-tools button, .danger button, .scale-preset-bar button { width: 100%; } }
+@media (max-width: 760px) { header { align-items: start; flex-direction: column; } .connection { flex-wrap: wrap; } .guide-grid { grid-template-columns: 1fr; } .scale-preset-bar { align-items: stretch; flex-direction: column; } .motif-groups, .calibration-graph-grid { grid-template-columns: 1fr; } .motif-grid { grid-template-columns: repeat(2, minmax(92px, 1fr)); } .file-tools, .danger { align-items: stretch; flex-direction: column; } .file-tools button, .danger button, .scale-preset-bar button { width: 100%; } .sensor-graph-header, .calibration-heading { align-items: stretch; flex-direction: column; } .sensor-graph-tools > * { flex: 1; } #sensor-graph { height: 210px; } }

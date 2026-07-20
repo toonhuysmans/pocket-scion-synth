@@ -43,7 +43,7 @@ describe("editor schema", () => {
     expect(sceneParameters).toHaveLength(47);
     expect(patchSharedParameters).toHaveLength(113);
     expect(bankParameters).toHaveLength(19);
-    expect(globalParameters).toHaveLength(7);
+    expect(globalParameters).toHaveLength(18);
     expect(bankNames).toHaveLength(16);
     expect(sceneParameters[18].values?.map(choice => choice.value)).toEqual([2, 4, 5]);
     expect(patchSharedParameters[35].values?.map(choice => choice.value)).toEqual([0, 1, 2, 3]);

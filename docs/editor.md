@@ -59,7 +59,7 @@ compiled default → saved override → unsaved editor value
 
 ```text
 GPIO0 sensor edges
-    → ten-interval statistics window
+    → configurable interval statistics window and edge-noise rejection
     → pressure/proximity + variation/expression + transient + pitch motion
     → bank sensor routing and lane-motion depths
     → tempo/density/rotation/velocity/timbre/ratchet decisions
@@ -133,7 +133,7 @@ instead of raw values.
 | Reload | Reads the current device values again. |
 | Save patch | Writes the active synth, sequence, and articulation patch to flash. |
 | Save bank settings | Writes the active bank's shared interaction settings. |
-| Save globals | Writes device-wide performance, MIDI, and LED settings. |
+| Save globals | Writes device-wide performance, MIDI, LED, and sensor-calibration settings. |
 | Unsaved indicator | Shows which ownership scopes differ from their saved state. |
 
 Only one unsaved patch can live in device RAM. Select or export deliberately
@@ -145,7 +145,7 @@ before moving away from extensive edits.
 |---|---|---|
 | Patch | Three synth snapshots, sequence, scale, motif, rhythm, motion/register routing, low mode, and six articulation slots | Save patch |
 | Bank | Tempo/gate multipliers, sensor routing, density/ratchet response, lane motion, LED colour, inherited low role | Save bank settings |
-| Globals | Root, sensitivity, volume, duration, pitch-bend preference, MIDI channel mode, LED brightness | Save globals |
+| Globals | Root, sensitivity, volume, duration, pitch-bend preference, MIDI channel mode, LED brightness, sensor calibration | Save globals |
 | Live sensor | Four read-only normalized measurements | Never saved |
 
 ## Bass tab
@@ -308,13 +308,24 @@ ignore the bank mode; an explicit Hybrid patch uses its patch-level balance.
 | Sensor pitch bend | Enables/disables live sensor-derived bend without changing patch or bank. |
 | MIDI channels | Channel 1 for all lanes, or channels 1–3 for Bass/Pad/Lead. |
 | LED master brightness | Scales the complete nine-pixel display. |
+| Response window | Number of accepted edge intervals per analysis update. Smaller is faster; larger is steadier. |
+| Noise rejection | Ignores edges closer together than this interval. Raise it to reject chatter; lower it to retain faster pulses. |
+| Adaptive normalization | Blends learned gesture range against absolute pulse timing. Higher values adapt better to plants and changing contacts. |
+| Pressure / expression smoothing | Sets how quickly each normalized value follows a new measurement. |
+| Variation gain | Converts interval variation into expression before normalization blending. |
+| Transient gain / decay | Sets accent strength and how quickly detected accents fall away. |
+| Activity timeout | Time without an accepted sensor edge before the input is considered inactive. |
+| Calibration learning | **Learn** continuously tracks the source range; **Freeze** holds the current learned range. |
+| Calibration recovery | Percentage of the remaining learned-range error recovered per analysis window after a spike. Variation recovers at 1.2× this value. |
 
 Equivalent hardware gestures update the device immediately. Root and patch
 changes are reflected back into an attached editor.
 
 ## Sensor monitor tab
 
-The monitor performs read-only polling and never changes the sound by itself.
+The monitor polls without changing the sound. Its **Reset calibration** action
+clears the learned ranges and resumes learning; it does not alter the stored
+calibration-control values.
 
 | Meter | Firmware signal |
 |---|---|
@@ -323,11 +334,33 @@ The monitor performs read-only polling and never changes the sound by itself.
 | Transient | Fast gesture onset with slower decay. |
 | Pitch motion | Bipolar relative interval movement, displayed around its normalized centre. |
 
+The rolling graph plots these four parameters together at 20 Hz. Select a
+10-, 30-, or 60-second range, pause it to inspect a gesture, or clear its local
+browser history. The complete Sensor calibration control set is repeated
+directly below the graph, so its effect can be judged while turning a control.
+These are the same persistent Globals values, not a separate copy; use **Save
+globals** to retain them. History is never written to the device or uploaded.
+
+Two calibration plots reveal the learned state itself. **Interval mean** shows
+the current pulse interval in gold against the learned minimum–maximum band in
+green; this is the basis of pressure. **Relative variation** shows the current
+coefficient of variation against its learned band; this is the basis of
+expression. The diagnostics row reports Learn/Freeze, active/idle state,
+analysis windows per second, dropped edges, edges rejected by the noise filter,
+and time since the last accepted edge.
+
+The default Calibration recovery is **1.0% per window**. This reaches roughly
+50% recovery in 7 seconds and 90% recovery in 23 seconds at ten analysis
+windows per second. Lower values preserve slow plant ranges longer; higher
+values recover faster after direct-touch spikes.
+
 These are normalized performance features, not raw electrical voltages. A
 plant often changes more slowly than direct pad touch; use lower modulation
 depths first and increase them after observing the monitor.
 
-Current firmware returns all four readings in one coherent USB SysEx snapshot.
+Current firmware returns all four musical readings in one coherent USB SysEx
+snapshot. Each live indicator has the same colour as its graph trace, so the
+meters also serve as the graph legend.
 The editor waits for each response before scheduling the next and refreshes at
 about 20 Hz, avoiding overlapping requests. With older firmware it falls back
 to four serialized reads at approximately the original slower rate.

@@ -44,7 +44,7 @@ static uint8_t checksum(const uint8_t *bytes, size_t length) {
 
 static void send_response(uint8_t command, uint8_t request,
                           const uint8_t *payload, uint8_t payload_length) {
-    uint8_t message[32];
+    uint8_t message[48];
     uint8_t length = 0u;
     message[length++] = 0xf0u;
     message[length++] = MANUFACTURER_DEVELOPMENT;
@@ -60,6 +60,12 @@ static void send_response(uint8_t command, uint8_t request,
     ++length;
     message[length++] = 0xf7u;
     (void)midi_usb_send_sysex(message, length);
+}
+
+static uint16_t scaled_sensor_value(float value, float scale) {
+    if (value <= 0.0f) return 0u;
+    float scaled = value * scale + 0.5f;
+    return (uint16_t)(scaled > 16383.0f ? 16383u : (uint16_t)scaled);
 }
 
 static void send_ack(uint8_t request, uint8_t command) {
@@ -163,17 +169,42 @@ static void process_message(void) {
             ok = synth_editor_restore(controlled_synth, payload[0], target);
         }
     } else if (command == COMMAND_SENSOR_SNAPSHOT && payload_length == 0u) {
-        uint8_t response[8];
+        uint16_t values[14] = {0u};
+        uint8_t response[28];
         for (uint8_t parameter = 0u; parameter < 4u; ++parameter) {
-            uint16_t value = 0u;
             if (!synth_editor_get(controlled_synth,
                                   SYNTH_EDITOR_SCOPE_SENSOR, 0u, 0u,
-                                  parameter, &value)) {
+                                  parameter, &values[parameter])) {
                 send_nack(request, command, 2u);
                 return;
             }
-            response[parameter * 2u] = (uint8_t)(value & 0x7fu);
-            response[parameter * 2u + 1u] = (uint8_t)((value >> 7u) & 0x7fu);
+        }
+
+        const sensor_stats_t *stats = &controlled_synth->last_sensor_stats;
+        values[4] = scaled_sensor_value(stats->mean_us, 0.01f);
+        values[5] = scaled_sensor_value(
+            controlled_synth->adaptive_mean_low_us, 0.01f);
+        values[6] = scaled_sensor_value(
+            controlled_synth->adaptive_mean_high_us, 0.01f);
+        float variation = stats->mean_us > 0.0f ?
+            stats->standard_deviation / stats->mean_us : 0.0f;
+        values[7] = scaled_sensor_value(variation, 10000.0f);
+        values[8] = scaled_sensor_value(
+            controlled_synth->adaptive_variation_low, 10000.0f);
+        values[9] = scaled_sensor_value(
+            controlled_synth->adaptive_variation_high, 10000.0f);
+        values[10] = (uint16_t)(
+            ((uint16_t)controlled_synth->sensor_window_counter << 3u) |
+            ((uint16_t)(controlled_synth->sensor_stats_valid != 0u) << 2u) |
+            ((uint16_t)sensor_has_recent_activity() << 1u) |
+            (uint16_t)(controlled_synth->sensor_calibration_learning != 0u));
+        values[11] = (uint16_t)(sensor_dropped_edges() & 0x3fffu);
+        values[12] = (uint16_t)(sensor_rejected_edges() & 0x3fffu);
+        values[13] = sensor_activity_age_ms();
+        for (uint8_t index = 0u; index < 14u; ++index) {
+            response[index * 2u] = (uint8_t)(values[index] & 0x7fu);
+            response[index * 2u + 1u] =
+                (uint8_t)((values[index] >> 7u) & 0x7fu);
         }
         send_response(RESPONSE_SENSOR_SNAPSHOT, request, response,
                       sizeof(response));

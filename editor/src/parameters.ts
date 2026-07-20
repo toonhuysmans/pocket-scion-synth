@@ -135,6 +135,17 @@ export const globalParameters: Parameter[] = [
   { id: 4, name: "Sensor pitch bend", section: "MIDI", min: 0, max: 1, display: v => v ? "On" : "Off" },
   { id: 5, name: "MIDI channels", section: "MIDI", min: 0, max: 1, display: v => v ? "Channels 1–3" : "Channel 1" },
   { id: 6, name: "LED master brightness", section: "Display", min: 0, max: 127 },
+  { id: 7, name: "Response window", section: "Sensor calibration", min: 4, max: 24, display: v => `${v} intervals` },
+  { id: 8, name: "Noise rejection", section: "Sensor calibration", min: 500, max: 10000, display: v => `${v} µs` },
+  { id: 9, name: "Adaptive normalization", section: "Sensor calibration", min: 0, max: 100, display: v => `${v}%` },
+  { id: 10, name: "Pressure smoothing", section: "Sensor calibration", min: 1, max: 100, display: v => `${v}%` },
+  { id: 11, name: "Expression smoothing", section: "Sensor calibration", min: 1, max: 100, display: v => `${v}%` },
+  { id: 12, name: "Variation gain", section: "Sensor calibration", min: 1, max: 200, display: v => `${(v / 10).toFixed(1)}×` },
+  { id: 13, name: "Transient gain", section: "Sensor calibration", min: 0, max: 200, display: v => `${v}%` },
+  { id: 14, name: "Transient decay", section: "Sensor calibration", min: 1, max: 100, display: v => `${v}%` },
+  { id: 15, name: "Activity timeout", section: "Sensor calibration", min: 100, max: 10000, display: v => `${(v / 1000).toFixed(1)} s` },
+  { id: 16, name: "Calibration learning", section: "Sensor calibration", min: 0, max: 1, display: v => v ? "Learn" : "Freeze" },
+  { id: 17, name: "Calibration recovery", section: "Sensor calibration", min: 1, max: 50, display: v => `${(v / 10).toFixed(1)}% / window` },
 ];
 
 export const bankNames = [

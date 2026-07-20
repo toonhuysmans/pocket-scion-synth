@@ -133,7 +133,7 @@ int main(void) {
         if (sensor_take_window(&stats, synth_sensitivity(&synth))) {
             synth_sensor_window(&synth, &stats);
         }
-        synth_sensor_tick(&synth, sensor_has_recent_activity(1500000u));
+        synth_sensor_tick(&synth, sensor_has_recent_activity());
 
         uint8_t active_voices = 0;
         for (unsigned i = 0; i < SYNTH_VOICE_COUNT; ++i) {

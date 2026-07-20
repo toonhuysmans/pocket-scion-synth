@@ -125,11 +125,12 @@ export class PocketScionConnection extends EventTarget {
 
   async sensorSnapshot(): Promise<number[]> {
     const response = await this.request(Command.SensorSnapshot, []);
-    if (response[0] !== Response.SensorSnapshot || response.length !== 10) {
+    if (response[0] !== Response.SensorSnapshot ||
+        ![10, 14, 30].includes(response.length)) {
       throw new Error("Unexpected sensor snapshot response.");
     }
     const payload = response.slice(2);
-    return Array.from({ length: 4 }, (_, index) =>
+    return Array.from({ length: payload.length / 2 }, (_, index) =>
       payload[index * 2] | (payload[index * 2 + 1] << 7));
   }
 

@@ -16,7 +16,7 @@ int main(void) {
         15000, 16000, 17000, 18000, 19000,
     };
     sensor_stats_t stats;
-    sensor_analyze_intervals(ramp, 2.0f, &stats);
+    sensor_analyze_intervals(ramp, 10u, 2.0f, &stats);
     assert(stats.minimum_us == 10000);
     assert(stats.maximum_us == 19000);
     assert(stats.delta_us == 9000);
@@ -26,19 +26,19 @@ int main(void) {
     assert(!stats.range_fault);
     assert(!stats.trigger);
 
-    sensor_analyze_intervals(ramp, 3.0f, &stats);
+    sensor_analyze_intervals(ramp, 10u, 3.0f, &stats);
     assert(stats.trigger);
 
     uint32_t boundary[10] = {
         10000, 510000, 10000, 10000, 10000,
         10000, 10000, 10000, 10000, 10000,
     };
-    sensor_analyze_intervals(boundary, 100.0f, &stats);
+    sensor_analyze_intervals(boundary, 10u, 100.0f, &stats);
     assert(stats.delta_us == 500000);
     assert(!stats.range_fault);
 
     boundary[1] = 510001;
-    sensor_analyze_intervals(boundary, 100.0f, &stats);
+    sensor_analyze_intervals(boundary, 10u, 100.0f, &stats);
     assert(stats.delta_us == 500001);
     assert(stats.range_fault);
     assert(!stats.trigger);

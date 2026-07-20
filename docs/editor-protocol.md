@@ -35,13 +35,29 @@ timeout and allow up to 6 seconds for flash commands.
 | `05` | Commit | scope, target LSB [, target MSB] | `40` ACK |
 | `06` | Revert | scope, target LSB [, target MSB] | `40` ACK |
 | `07` | Restore compiled default | scope, target LSB [, target MSB] | `40` ACK |
-| `08` | Sensor snapshot | none | `43` four-value snapshot |
+| `08` | Sensor snapshot | none | `43` four- or fourteen-value snapshot |
 
 `ACK`/`NACK` payloads contain the original command and status/error code.
 `VALUE` echoes scope, target, lane, and parameter followed by the 14-bit value.
 `SENSOR SNAPSHOT` contains pressure, expression, transient, and bipolar pitch
 motion as four consecutive 14-bit values, low seven bits first. One coherent
 packet replaces four separately queued `GET` requests.
+
+Firmware with calibration diagnostics appends ten more 14-bit values:
+
+| Index | Value | Encoding |
+|---:|---|---|
+| 4 | Current mean edge interval | 100 µs units |
+| 5–6 | Learned mean minimum and maximum | 100 µs units |
+| 7 | Current relative variation (`standard deviation / mean`) | ×10,000 |
+| 8–9 | Learned variation minimum and maximum | ×10,000 |
+| 10 | Status and analysis-window counter | bit 0 learning, bit 1 active, bit 2 valid statistics, bits 3–10 wrapping 8-bit window count |
+| 11 | Dropped edge-queue count | low 14 bits |
+| 12 | Edges rejected by minimum-interval filtering | low 14 bits |
+| 13 | Time since the last accepted edge | milliseconds; 16383 means no signal yet |
+
+Hosts must accept the four-value legacy prefix. Calibration graphs should only
+be displayed when all fourteen values are present.
 
 Firmware reporting at most 128 patches uses the original one-byte target.
 Firmware reporting more than 128 patches uses two 7-bit bytes, least
@@ -80,9 +96,16 @@ and restore commands.
   percent, biased density offset, ratchet percent, gate percent, and motion
   percent for bass, pad, and lead, red/green/blue LED levels, default low-role
   mode, and inherited percussion balance.
-- Global target is ignored. Parameters are root, sensitivity index, volume
+- Global target is ignored. Parameters 0–6 are root, sensitivity index, volume
   index, duration index, pitch-bend enable, multichannel enable, and LED
-  brightness.
+  brightness. Parameters 7–17 are sensor response window (4–24), minimum edge
+  interval in microseconds (500–10000), adaptive-normalization percent,
+  pressure-smoothing percent, expression-smoothing percent, variation gain in
+  tenths, transient-gain percent, transient-decay percent, activity timeout in
+  milliseconds, calibration learning, and calibration recovery in tenths of a
+  percent per analysis window (1–50). Learning accepts `0` Freeze, `1`
+  Learn, and the momentary set-only value `2` Reset + Learn; reading it returns
+  the resulting persistent `0` or `1` state.
 - Sensor parameters 0–3 are pressure, expression, transient, and bipolar pitch
   motion mapped to 0–1000.
 
