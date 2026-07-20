@@ -6,8 +6,8 @@ Instead of selecting prerecorded samples, it generates every sound live with
 oscillators, filters, envelopes, LFOs, chorus, delay, and three distinct
 musical roles: bass/percussion, pad, and lead.
 
-Release v2.4.0 is the first packaged multi-timbral build: bass/percussion, pad,
-and lead use independent PRA32-U timbres while sharing the final effects stage.
+Release v2.5.0 expands the multi-timbral instrument to 256 patches and adds
+tunable adaptive plant-sensor calibration with live diagnostic graphs.
 The previous [v2.3.0 single-timbre release](https://github.com/toonhuysmans/pocket-scion-synth/releases/tag/v2.3.0)
 remains available as a rollback option.
 
@@ -36,12 +36,8 @@ respective owner.
 ## Install the compiled firmware
 
 The ready-to-flash build is
-[`pocket_scion_synth_v2.4.0.uf2`](https://github.com/toonhuysmans/pocket-scion-synth/releases/download/multi-tibral/pocket_scion_synth_v2.4.0.uf2)
-from the [v2.4.0 multi-timbral release](https://github.com/toonhuysmans/pocket-scion-synth/releases/tag/multi-tibral).
-
-The current `multi-timbral` source is the v2.5.0 development library with
-sixteen banks. Its audition build should be hardware-tested before replacing
-the stable v2.4.0 download above.
+[`pocket_scion_synth_v2.5.0.uf2`](https://github.com/toonhuysmans/pocket-scion-synth/releases/download/v2.5.0/pocket_scion_synth_v2.5.0.uf2)
+from the [v2.5.0 release](https://github.com/toonhuysmans/pocket-scion-synth/releases/tag/v2.5.0).
 
 1. Disconnect the Pocket SCION from USB.
 2. Hold its RP2040 boot-selection control while reconnecting USB, or otherwise
@@ -53,7 +49,7 @@ the stable v2.4.0 download above.
 The SHA-256 digest is:
 
 ```text
-ce367a389a3248ab620f98aaede7c0e3b3c2ef7855b558953ef10dcdeb0ae29f
+3397c4337ca47e358c64ad296834d90c62933368de25bd8d5ba52950d56023f6
 ```
 
 Use moderate monitoring volume for the first boot. A short A/E/A startup chord
@@ -73,9 +69,10 @@ is linked rather than redistributed by this project.
 
 ## How it works
 
-GPIO0 supplies edge timestamps from the biofeedback oscillator. Ten accepted
-intervals form one analysis window. Range, variance, standard deviation,
-proximity, and trigger statistics continuously reshape a generative sequencer.
+GPIO0 supplies edge timestamps from the biofeedback oscillator. A configurable
+number of accepted intervals forms one analysis window. Range, variance,
+standard deviation, proximity, and trigger statistics continuously reshape a
+generative sequencer.
 Three Euclidean lanes choose notes from a scale. Independent
 [PRA32-U](https://github.com/risgk/digital-synth-pra32-u) engines voice the low
 lane as bass/percussion, the middle lane as a pad, and the high lane as a lead.
@@ -109,7 +106,7 @@ See [docs/controls.md](docs/controls.md) for display feedback and MIDI details.
 The [`editor/`](editor/) web application exposes all three 47-parameter synth
 snapshots together with sequence, sensor-routing, rhythm, MIDI, and global
 settings. It runs in desktop Chrome or Edge through Web MIDI SysEx. Changes can
-be auditioned live, explicitly saved into any of the 128 flash-backed slots,
+be auditioned live, explicitly saved into any of the 256 flash-backed slots,
 reverted, restored to compiled defaults, and exchanged as readable patch or
 bank JSON. [Open the hosted editor](https://toonhuysmans.github.io/pocket-scion-synth/)
 or see the [editor guide](docs/editor.md).

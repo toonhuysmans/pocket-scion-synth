@@ -2,7 +2,7 @@
 
 The `multi-timbral` branch maps the three sequencer ranges to independent
 PRA32-U timbres: bass/percussion, pad, and lead. This hardware-tested
-three-engine topology was packaged in v2.4.0 and the v2.5.0 development build
+three-engine topology was packaged in v2.4.0 and the v2.5.0 release
 expands it to sixteen banks and 256 patches.
 
 ## Signal path

@@ -37,8 +37,9 @@ clock and 48 kHz word clock divide exactly.
 ## Sensor
 
 GPIO0 receives a digital pulse train from the plant/biofeedback front end.
-Both rising and falling edges are timestamped. Intervals at or below 2,500 µs
-are rejected, and ten accepted intervals make one statistics window.
+Both rising and falling edges are timestamped. A configurable minimum interval
+rejects fast noise, and a configurable number of accepted intervals makes one
+statistics window.
 
 The firmware calculates:
 

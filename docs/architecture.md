@@ -5,7 +5,7 @@
 ```text
 GPIO0 edges
     → interval queue
-    → ten-interval statistics window
+    → configurable interval statistics window
     → sensor expression and trigger features
     → three Euclidean rhythm lanes
     → scale / motif / ratchet decisions

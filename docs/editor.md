@@ -32,7 +32,7 @@ wins.
 ### Control and storage flow
 
 ```text
-compiled 128-patch library
+compiled 256-patch library
           │
           ├── overridden by newest valid flash-journal record
           │
