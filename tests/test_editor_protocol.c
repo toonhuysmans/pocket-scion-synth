@@ -13,6 +13,10 @@ static uint16_t selected_patch;
 static uint16_t set_value;
 
 uint32_t preset_store_flash_size(void) { return 2u * 1024u * 1024u; }
+bool sensor_has_recent_activity(void) { return true; }
+uint32_t sensor_dropped_edges(void) { return 3u; }
+uint32_t sensor_rejected_edges(void) { return 4u; }
+uint16_t sensor_activity_age_ms(void) { return 5u; }
 
 bool midi_usb_send_sysex(const uint8_t *bytes, uint16_t length) {
     assert(length <= sizeof(response));
@@ -85,7 +89,7 @@ static void assert_response(uint8_t command, uint8_t request) {
 }
 
 int main(void) {
-    synth_t synth;
+    synth_t synth = {0};
     editor_protocol_init(&synth);
     assert(receive_handler != NULL);
 
@@ -114,11 +118,15 @@ int main(void) {
     response_length = 0u;
     send_request(0x08u, 10u, NULL, 0u);
     assert_response(0x43u, 10u);
-    assert(response_length == 17u);
+    assert(response_length == 37u);
     for (unsigned parameter = 0u; parameter < 4u; ++parameter) {
         assert(response[7u + parameter * 2u] == (1000u & 0x7fu));
         assert(response[8u + parameter * 2u] == (1000u >> 7u));
     }
+    assert(response[27] == 2u);  // Active, not yet calibrated or learning.
+    assert(response[29] == 3u);  // Dropped edges.
+    assert(response[31] == 4u);  // Rejected fast edges.
+    assert(response[33] == 5u);  // Last accepted edge age in milliseconds.
 
     uint8_t corrupt[] = {0xf0u, 0x7du, 0x50u, 0x53u, 1u, 1u, 10u, 1u, 0xf7u};
     response_length = 0u;
