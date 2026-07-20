@@ -22,6 +22,9 @@ provide the required Web MIDI interface.
    current saved override or compiled default.
 
 The status line reports the firmware version and detected flash capacity.
+For an exact release match, use the [editor version selector](https://toonhuysmans.github.io/pocket-scion-synth/versions/):
+v2.4.0 and v2.5.0 are built from their immutable release tags, while the site
+root follows current development.
 Patch changes made with the hardware Instrument button are sent over USB as CC
 23. The editor follows them, updates both selectors, and loads the newly active
 patch. Rapid hardware changes cancel stale reads so the last device selection

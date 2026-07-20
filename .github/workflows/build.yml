@@ -54,6 +54,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: 20
@@ -65,13 +67,30 @@ jobs:
         working-directory: editor
       - run: npm run build
         working-directory: editor
+      - name: Assemble current and versioned editors
+        if: github.event_name == 'push' && github.ref == 'refs/heads/multi-timbral'
+        run: |
+          mkdir -p "$RUNNER_TEMP/pages"
+          cp -R editor/dist/. "$RUNNER_TEMP/pages/"
+
+          git worktree add "$RUNNER_TEMP/editor-v2.5.0" v2.5.0
+          npm ci --prefix "$RUNNER_TEMP/editor-v2.5.0/editor"
+          npm run build --prefix "$RUNNER_TEMP/editor-v2.5.0/editor"
+          mkdir -p "$RUNNER_TEMP/pages/v2.5.0"
+          cp -R "$RUNNER_TEMP/editor-v2.5.0/editor/dist/." "$RUNNER_TEMP/pages/v2.5.0/"
+
+          git worktree add "$RUNNER_TEMP/editor-v2.4.0" multi-tibral
+          npm ci --prefix "$RUNNER_TEMP/editor-v2.4.0/editor"
+          npm run build --prefix "$RUNNER_TEMP/editor-v2.4.0/editor"
+          mkdir -p "$RUNNER_TEMP/pages/v2.4.0"
+          cp -R "$RUNNER_TEMP/editor-v2.4.0/editor/dist/." "$RUNNER_TEMP/pages/v2.4.0/"
       - uses: actions/upload-pages-artifact@v4
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/multi-timbral')
+        if: github.event_name == 'push' && github.ref == 'refs/heads/multi-timbral'
         with:
-          path: editor/dist
+          path: ${{ runner.temp }}/pages
 
   deploy-editor:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/multi-timbral')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/multi-timbral'
     needs: editor
     runs-on: ubuntu-latest
     permissions:

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#151914" />
+    <title>Pocket SCION Alternative Editor Versions</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #0c0f0c; color: #eef2e8; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 80% 0%, #273324 0, #111610 35rem, #0c0f0c 70rem); }
+      main { width: min(760px, calc(100% - 32px)); margin: 0 auto; padding: 56px 0; }
+      .eyebrow { margin: 0 0 8px; color: #c9a665; text-transform: uppercase; letter-spacing: .16em; font-size: .72rem; }
+      h1 { margin: 0; font-size: clamp(2rem, 7vw, 4rem); font-weight: 560; letter-spacing: -.035em; }
+      .intro { margin: 16px 0 30px; color: #aab3a3; line-height: 1.55; }
+      .versions { display: grid; gap: 12px; }
+      .version { display: block; padding: 18px; border: 1px solid #303a2d; border-radius: 12px; color: inherit; background: rgba(20, 25, 19, .92); text-decoration: none; }
+      .version:hover { border-color: #c9a665; background: #1d251b; }
+      .version h2 { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 7px; font-size: 1.05rem; }
+      .version p { margin: 0; color: #9ca794; line-height: 1.45; font-size: .85rem; }
+      .badge { color: #151914; background: #c9a665; border-radius: 999px; padding: 3px 8px; font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+      .note { margin: 24px 2px 0; color: #899184; font-size: .78rem; line-height: 1.55; }
+      .note a { color: #d8b978; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Pocket SCION</p>
+      <h1>Alternative editor versions</h1>
+      <p class="intro">Choose the editor matching the firmware installed on the instrument. Versioned editors remain fixed, while Current follows ongoing development.</p>
+      <div class="versions">
+        <a class="version" href="../">
+          <h2>Current development <span class="badge">Latest</span></h2>
+          <p>The newest editor from the multi-timbral branch. It remains backward-compatible where the firmware reports its capabilities.</p>
+        </a>
+        <a class="version" href="../v2.5.0/">
+          <h2>v2.5.0 — Adaptive Calibration</h2>
+          <p>For firmware v2.5.0: 256 patches, tunable sensor calibration, time-series plots, and learned-range diagnostics.</p>
+        </a>
+        <a class="version" href="../v2.4.0/">
+          <h2>v2.4.0 — Multi-Timbral</h2>
+          <p>For the first packaged three-engine firmware with 128 patches and the original editor parameter schema.</p>
+        </a>
+      </div>
+      <p class="note">Firmware downloads remain available on the <a href="https://github.com/toonhuysmans/pocket-scion-synth/releases">GitHub Releases page</a>. Firmware v2.3.0 predates the browser editor.</p>
+    </main>
+  </body>
+</html>

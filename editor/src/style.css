@@ -9,6 +9,8 @@ h2 { font-size: 1rem; margin-bottom: 5px; }
 .eyebrow { color: #c9a665; text-transform: uppercase; letter-spacing: .16em; font-size: .72rem; margin-bottom: 6px; }
 .panel { border: 1px solid #303a2d; background: rgba(20, 25, 19, .92); border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,.22); }
 .connection { display: flex; align-items: center; gap: 9px; color: #9ca794; font-size: .85rem; }
+.version-link { color: #d8b978; margin-right: 4px; text-decoration: none; }
+.version-link:hover { text-decoration: underline; }
 #connection-light { width: 9px; height: 9px; border-radius: 50%; background: #7d433c; box-shadow: 0 0 12px #7d433c; }
 #connection-light.on { background: #a6dc79; box-shadow: 0 0 15px #a6dc79; }
 button, select { appearance: none; border: 1px solid #465040; color: #eef2e8; background: #252d22; border-radius: 8px; padding: 9px 12px; font: inherit; }
