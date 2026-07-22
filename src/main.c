@@ -33,7 +33,7 @@ static void show_display_state(void) {
         default: value = synth.program_index + 1; minimum = 1; maximum = 16; break;
     }
     display_show_parameter(names[display_parameter], value, minimum, maximum,
-                           synth_program_id(&synth), synth.bank_index, true);
+                           synth.program_index, synth.bank_index, true);
 #endif
 }
 
