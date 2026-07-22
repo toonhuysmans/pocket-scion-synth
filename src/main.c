@@ -36,6 +36,12 @@ static const char *const voice_parameter_names[47] = {
     "FILTER MODE", "AMP EG MOD", "REL=DECAY", "BEND RANGE", "BREATH FILTER", "BREATH AMP", "ENV VELOCITY", "AMP VELOCITY",
     "ASSIGN MODE", "CHORUS MIX", "CHORUS RATE", "CHORUS DEPTH", "DELAY FEEDBACK", "DELAY TIME", "DELAY MODE"
 };
+static const char *const shared_parameter_names[] = {
+ "SCALE DEGREE 1","SCALE DEGREE 2","SCALE DEGREE 3","SCALE DEGREE 4","SCALE DEGREE 5","SCALE DEGREE 6","SCALE DEGREE 7",
+ "MOTIF 1","MOTIF 2","MOTIF 3","MOTIF 4","MOTIF 5","MOTIF 6","MOTIF 7","MOTIF 8","MOTIF 9","MOTIF 10","MOTIF 11","MOTIF 12","MOTIF 13","MOTIF 14","MOTIF 15","MOTIF 16",
+ "TEMPO","BASS STEPS","PAD STEPS","LEAD STEPS","SWING","BASS GATE","PAD GATE","LEAD GATE","BASS DENSITY","BASS RATCHETS","PAD RATCHETS","LEAD RATCHETS","LOW-LANE MODE","PERC BALANCE","SENSOR INFLUENCE","VARIATION"
+};
+static const char *const late_parameter_names[] = {"PERC 1 SOUND","PERC 1 ROLE","PERC 1 WEIGHT","PERC 1 LEVEL","PERC 1 TUNE","PERC 1 TONE","PERC 1 NOISE","PERC 1 DECAY","PERC 1 TRANSIENT","PERC 1 RATCHET","PAD DENSITY","LEAD DENSITY","BREATH MAX","PITCH-BEND RESPONSE","RATCHET RESPONSE","AMP DECAY MOTION","AMP SUSTAIN MOTION","AMP RELEASE MOTION","PRESSURE OCTAVES","EXPRESSION THRESHOLD","CUTOFF MOTION","RESONANCE MOTION","MORPH MOTION","LFO RATE MOTION"};
 #endif
 
 static void show_display_state(void) {
@@ -79,6 +85,8 @@ static void show_display_state(void) {
             static const char *lanes[] = {"BASS", "PAD", "LEAD"};
             char label[24];
             if (parameter < 47u) snprintf(label, sizeof(label), "%s %s", lanes[lane], voice_parameter_names[parameter]);
+            else if (parameter >= 47u && parameter < 86u) snprintf(label, sizeof(label), "%s", shared_parameter_names[parameter - 47u]);
+            else if (parameter >= 86u && parameter < 110u) snprintf(label, sizeof(label), "%s", late_parameter_names[parameter - 86u]);
             else snprintf(label, sizeof(label), "%s P%u", lanes[lane], parameter);
             display_show_parameter(label, value, 0, 127,
                                    synth.program_index, synth.bank_index, true);
