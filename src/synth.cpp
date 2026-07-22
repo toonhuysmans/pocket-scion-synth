@@ -12,6 +12,7 @@
 #include "pico/multicore.h"
 #include "pico/platform.h"
 #include "raw_capture.h"
+#include "sam_voice.h"
 #include "status_rgb.h"
 
 // PRA32-U uses Arduino's boolean alias in its otherwise portable DSP headers.
@@ -302,12 +303,130 @@ static_assert(sizeof(global_record_t) == 22u,
 
 patch_record_t active_patch;
 bank_record_t active_bank;
+sam_voice_patch_t active_speech;
 uint8_t active_patch_id = 0xffu;
 uint8_t active_bank_id = 0xffu;
 bool active_patch_dirty = false;
 bool active_bank_dirty = false;
 bool globals_dirty = false;
 uint8_t editor_led_brightness = 127u;
+
+struct speech_base_record_t {
+    uint8_t enabled, level, speed, pitch, mouth, throat, density;
+    uint8_t sensor_influence;
+    char phrase[4][SAM_VOICE_PHRASE_LENGTH];
+    uint8_t motion_chance, motion_amount;
+};
+
+struct speech_extension_record_t {
+    char phrase[3][SAM_VOICE_PHRASE_LENGTH];
+};
+
+static_assert(sizeof(speech_base_record_t) <= 236u,
+              "Base speech record must fit one flash payload");
+static_assert(sizeof(speech_extension_record_t) <= 236u,
+              "Speech extension must fit one flash payload");
+
+void build_default_speech(uint8_t id, sam_voice_patch_t *record) {
+    static constexpr const char *phrases[SAM_VOICE_PHRASE_COUNT] = {
+        "Happy Birthday to you",
+        "Happy Birthday dear friend",
+        "Dance, Dance",
+        "How old are you now?",
+        "one thousand years!",
+        "Metronome",
+        "Happy, Happy",
+        "Music makes me dance",
+        "Acid!",
+        "Pants on?! Pants off!?",
+    };
+    const uint8_t bank = static_cast<uint8_t>(id / 16u);
+    const uint8_t program = static_cast<uint8_t>(id % 16u);
+    std::memset(record, 0, sizeof(*record));
+    record->enabled = 1u;
+    record->level = 25u;
+    record->speed = static_cast<uint8_t>(62u + (program % 7u) * 4u);
+    record->pitch = static_cast<uint8_t>(48u + ((bank * 11u + program * 5u) % 46u));
+    record->mouth = static_cast<uint8_t>(96u + ((bank * 13u + program * 3u) % 80u));
+    record->throat = static_cast<uint8_t>(92u + ((bank * 7u + program * 9u) % 88u));
+    record->density = static_cast<uint8_t>(20u + (program % 5u) * 9u);
+    record->sensor_influence = static_cast<uint8_t>(64u + (bank % 4u) * 16u);
+    record->motion_chance = 34u;
+    record->motion_amount = 22u;
+    for (uint8_t phrase = 0u; phrase < SAM_VOICE_PHRASE_COUNT; ++phrase) {
+        std::strncpy(record->phrase[phrase], phrases[phrase],
+                     SAM_VOICE_PHRASE_LENGTH - 1u);
+    }
+}
+
+bool load_speech_override(uint8_t id, sam_voice_patch_t *record) {
+    speech_base_record_t base = {
+        record->enabled, record->level, record->speed, record->pitch,
+        record->mouth, record->throat, record->density,
+        record->sensor_influence, {}, record->motion_chance,
+        record->motion_amount,
+    };
+    for (uint8_t phrase = 0u; phrase < 4u; ++phrase) {
+        std::memcpy(base.phrase[phrase], record->phrase[phrase],
+                    SAM_VOICE_PHRASE_LENGTH);
+    }
+    bool loaded = preset_store_load_prefix(preset_store_speech_patch_key(id),
+                                           &base, sizeof(base), nullptr);
+    record->enabled = base.enabled; record->level = base.level;
+    record->speed = base.speed; record->pitch = base.pitch;
+    record->mouth = base.mouth; record->throat = base.throat;
+    record->density = base.density;
+    record->sensor_influence = base.sensor_influence;
+    record->motion_chance = base.motion_chance;
+    record->motion_amount = base.motion_amount;
+    for (uint8_t phrase = 0u; phrase < 4u; ++phrase) {
+        std::memcpy(record->phrase[phrase], base.phrase[phrase],
+                    SAM_VOICE_PHRASE_LENGTH);
+    }
+    for (uint8_t extension = 0u; extension < 2u; ++extension) {
+        speech_extension_record_t extra = {};
+        const uint8_t first = static_cast<uint8_t>(4u + extension * 3u);
+        for (uint8_t index = 0u; index < 3u; ++index) {
+            std::memcpy(extra.phrase[index], record->phrase[first + index],
+                        SAM_VOICE_PHRASE_LENGTH);
+        }
+        const bool extension_loaded = preset_store_load_prefix(
+            preset_store_speech_extension_key(id, extension), &extra,
+            sizeof(extra), nullptr);
+        loaded = loaded || extension_loaded;
+        for (uint8_t index = 0u; index < 3u; ++index) {
+            std::memcpy(record->phrase[first + index], extra.phrase[index],
+                        SAM_VOICE_PHRASE_LENGTH);
+        }
+    }
+    return loaded;
+}
+
+bool save_speech_override(uint8_t id, const sam_voice_patch_t &record) {
+    speech_base_record_t base = {
+        record.enabled, record.level, record.speed, record.pitch,
+        record.mouth, record.throat, record.density, record.sensor_influence,
+        {}, record.motion_chance, record.motion_amount,
+    };
+    for (uint8_t phrase = 0u; phrase < 4u; ++phrase) {
+        std::memcpy(base.phrase[phrase], record.phrase[phrase],
+                    SAM_VOICE_PHRASE_LENGTH);
+    }
+    bool ok = preset_store_save(preset_store_speech_patch_key(id), &base,
+                                sizeof(base));
+    for (uint8_t extension = 0u; extension < 2u && ok; ++extension) {
+        speech_extension_record_t extra = {};
+        const uint8_t first = static_cast<uint8_t>(4u + extension * 3u);
+        for (uint8_t index = 0u; index < 3u; ++index) {
+            std::memcpy(extra.phrase[index], record.phrase[first + index],
+                        SAM_VOICE_PHRASE_LENGTH);
+        }
+        ok = preset_store_save(
+            preset_store_speech_extension_key(id, extension), &extra,
+            sizeof(extra));
+    }
+    return ok;
+}
 
 global_record_t default_global_record() {
     return {
@@ -1660,6 +1779,11 @@ void normalize_patch_voice_modes(patch_record_t *record) {
 void load_active_patch(uint8_t id) {
     build_default_patch(id, &active_patch);
     (void)load_patch_override(id, &active_patch);
+    build_default_speech(id, &active_speech);
+    (void)load_speech_override(id, &active_speech);
+    for (uint8_t phrase = 0u; phrase < SAM_VOICE_PHRASE_COUNT; ++phrase) {
+        active_speech.phrase[phrase][SAM_VOICE_PHRASE_LENGTH - 1u] = '\0';
+    }
     normalize_patch_voice_modes(&active_patch);
     active_patch_id = id;
     active_patch_dirty = false;
@@ -1811,6 +1935,7 @@ int16_t __not_in_flash_func(process_dry_engine)(PRA32_U_Synth<true> &target) {
 void __not_in_flash_func(core1_entry)() {
     (void)flash_safe_execute_core_init();
     for (;;) {
+        if (sam_voice_core1_service()) continue;
         if (upper_render_request != 0u) {
             upper_render_result = process_dry_engine(upper_engine);
             __dmb();
@@ -2258,6 +2383,7 @@ extern "C" {
 
 void synth_init(synth_t *synth) {
     (void)preset_store_init();
+    sam_voice_init();
     std::memset(synth, 0, sizeof(*synth));
     synth->random_state = 0x51c10a7du;
     synth->rhythm_seed = 0x6d2b79f5u;
@@ -2268,6 +2394,8 @@ void synth_init(synth_t *synth) {
     synth->sensitivity_index = 4;
     synth->volume_index = 7;
     synth->duration_index = 3;
+    synth->speech_last_bar = 0xffu;
+    synth->speech_last_phrase = 0xffu;
     global_record_t globals = default_global_record();
     (void)preset_store_load_prefix(PRESET_STORE_GLOBAL_KEY, &globals,
                                    sizeof(globals), NULL);
@@ -2734,6 +2862,61 @@ static void process_sensor_state(synth_t *synth, const sensor_stats_t *stats,
                                       synth->euclid_rotation[lane]);
         any_hit = any_hit || lane_hit[lane];
     }
+    if (step == 0u && synth->speech_last_bar != bar &&
+        active_speech.enabled != 0u && !sam_voice_active()) {
+        float sensor = synth->sensor_proximity * 0.45f +
+            synth->sensor_expression * 0.35f + synth->sensor_transient * 0.20f;
+        int chance = active_speech.density + static_cast<int>(
+            sensor * active_speech.sensor_influence);
+        if (chance > 127) chance = 127;
+        uint32_t voice_random = random_u32(synth);
+        if ((voice_random & 127u) < static_cast<uint32_t>(chance)) {
+            uint8_t phrase = static_cast<uint8_t>(
+                (voice_random >> 8u) % SAM_VOICE_PHRASE_COUNT);
+            for (uint8_t attempt = 0u; attempt < SAM_VOICE_PHRASE_COUNT;
+                 ++attempt) {
+                if (phrase != synth->speech_last_phrase &&
+                    active_speech.phrase[phrase][0] != '\0') break;
+                phrase = static_cast<uint8_t>(
+                    (phrase + 1u) % SAM_VOICE_PHRASE_COUNT);
+            }
+            sam_voice_character_t performance = {
+                active_speech.enabled, active_speech.level,
+                active_speech.speed, active_speech.pitch,
+                active_speech.mouth, active_speech.throat,
+            };
+            uint32_t motion_random = random_u32(synth);
+            if ((motion_random & 127u) < active_speech.motion_chance &&
+                active_speech.motion_amount != 0u) {
+                const int amount = active_speech.motion_amount;
+                auto moved = [amount](uint8_t value, uint8_t random_byte,
+                                      int scale, int minimum) {
+                    int offset = (static_cast<int>(random_byte) - 128) *
+                        amount * scale / (128 * 2);
+                    int result = static_cast<int>(value) + offset;
+                    if (result < minimum) result = minimum;
+                    if (result > 255) result = 255;
+                    return static_cast<uint8_t>(result);
+                };
+                performance.speed = moved(active_speech.speed,
+                    static_cast<uint8_t>(motion_random >> 8u), 1, 1);
+                performance.pitch = moved(active_speech.pitch,
+                    static_cast<uint8_t>(motion_random >> 16u), 2, 0);
+                performance.mouth = moved(active_speech.mouth,
+                    static_cast<uint8_t>(motion_random >> 24u), 2, 0);
+                performance.throat = moved(active_speech.throat,
+                    static_cast<uint8_t>(random_u32(synth) >> 24u), 2, 0);
+            }
+            if (sam_voice_request(active_speech.phrase[phrase], &performance)) {
+                synth->speech_last_bar = bar;
+                synth->speech_last_phrase = phrase;
+                // USB-only CC 119 lets the editor display the exact phrase
+                // without adding speech metadata to the musician-facing DIN
+                // MIDI stream.
+                midi_usb_control_change(0u, 119u, phrase);
+            }
+        }
+    }
     if (!any_hit) return;
 
     const uint8_t octave_span = patch_proximity_octaves(active_patch);
@@ -2930,7 +3113,8 @@ void __not_in_flash_func(synth_render)(synth_t *synth,
     for (uint32_t frame = 0; frame < frame_count; ++frame) {
         service_ratchets(synth, synth->transport_frame + frame);
         service_note_durations(synth);
-        if (upper_render_disabled == 0u) {
+        const bool speech_rendering = sam_voice_render_busy();
+        if (upper_render_disabled == 0u && !speech_rendering) {
             upper_render_request = 1u;
             __dmb();
         }
@@ -2938,11 +3122,11 @@ void __not_in_flash_func(synth_render)(synth_t *synth,
         // Paraphonic/polyphonic lead rendering processes four oscillators on
         // core 1 and needs a wider bounded completion window than mono mode.
         unsigned wait_budget = 2048u;
-        while (upper_render_disabled == 0u &&
+        while (upper_render_disabled == 0u && !speech_rendering &&
                upper_render_request != 0u && wait_budget-- != 0u) {
             tight_loop_contents();
         }
-        if (upper_render_request != 0u) {
+        if (!speech_rendering && upper_render_request != 0u) {
             // Never let a failed secondary render freeze controls and LEDs.
             // Mute the lead for this boot and continue with bass + pad.
             upper_render_disabled = 1u;
@@ -2951,8 +3135,13 @@ void __not_in_flash_func(synth_render)(synth_t *synth,
         }
         __dmb();
         int16_t upper = upper_render_result;
-        int16_t dry_input = upper_render_disabled != 0u ? bass :
+        int16_t dry_input = upper_render_disabled != 0u || speech_rendering ? bass :
             static_cast<int16_t>((static_cast<int32_t>(bass) + upper) / 2);
+        int32_t mixed = static_cast<int32_t>(dry_input) +
+                        static_cast<int32_t>(sam_voice_next_sample());
+        if (mixed > 32767) mixed = 32767;
+        if (mixed < -32768) mixed = -32768;
+        dry_input = static_cast<int16_t>(mixed);
         int16_t right = 0;
         int16_t left = middle_engine.process(dry_input, right);
         left = scale_sample(left, synth->master_gain_q15);
@@ -2980,6 +3169,27 @@ bool synth_editor_select(synth_t *synth, uint16_t patch_id) {
 static bool editor_get_patch(uint16_t target, uint8_t lane, uint8_t parameter,
                              bool defaults_only, uint16_t *value) {
     if (target >= scene_count * bank_count) return false;
+    if (lane == SYNTH_EDITOR_SPEECH_LANE) {
+        if (parameter >= SYNTH_EDITOR_SPEECH_PARAMETER_COUNT) return false;
+        sam_voice_patch_t temporary_speech;
+        const sam_voice_patch_t *speech = &active_speech;
+        if (defaults_only || target != active_patch_id) {
+            build_default_speech(static_cast<uint8_t>(target), &temporary_speech);
+            if (!defaults_only) {
+                (void)load_speech_override(static_cast<uint8_t>(target),
+                                           &temporary_speech);
+            }
+            speech = &temporary_speech;
+        }
+        const uint8_t values[SYNTH_EDITOR_SPEECH_PARAMETER_COUNT] = {
+            speech->enabled, speech->level, speech->speed, speech->pitch,
+            speech->mouth, speech->throat, speech->density,
+            speech->sensor_influence, speech->motion_chance,
+            speech->motion_amount,
+        };
+        *value = values[parameter];
+        return true;
+    }
     patch_record_t temporary;
     const patch_record_t *record = &active_patch;
     if (defaults_only || target != active_patch_id) {
@@ -3289,6 +3499,22 @@ bool synth_editor_set(synth_t *synth, uint8_t scope, uint16_t target,
             } else {
                 return false;
             }
+        } else if (lane == SYNTH_EDITOR_SPEECH_LANE) {
+            if (parameter >= SYNTH_EDITOR_SPEECH_PARAMETER_COUNT ||
+                value > 255u) return false;
+            uint8_t *fields[SYNTH_EDITOR_SPEECH_PARAMETER_COUNT] = {
+                &active_speech.enabled, &active_speech.level,
+                &active_speech.speed, &active_speech.pitch,
+                &active_speech.mouth, &active_speech.throat,
+                &active_speech.density, &active_speech.sensor_influence,
+                &active_speech.motion_chance, &active_speech.motion_amount,
+            };
+            if (parameter == 0u && value > 1u) return false;
+            if ((parameter == 1u || parameter >= 6u) && value > 127u) {
+                return false;
+            }
+            if (parameter == 2u && value == 0u) return false;
+            *fields[parameter] = static_cast<uint8_t>(value);
         } else {
             return false;
         }
@@ -3415,10 +3641,62 @@ bool synth_editor_set(synth_t *synth, uint8_t scope, uint16_t target,
     return false;
 }
 
+bool synth_editor_get_phrase(synth_t *synth, uint16_t target,
+                             uint8_t phrase, char *text, size_t capacity) {
+    (void)synth;
+    constexpr uint16_t active_target = 0x3fffu;
+    if ((target >= PRESET_STORE_PATCH_COUNT && target != active_target) ||
+        phrase >= SAM_VOICE_PHRASE_COUNT || text == nullptr || capacity == 0u) {
+        return false;
+    }
+    sam_voice_patch_t temporary_speech;
+    const sam_voice_patch_t *speech = &active_speech;
+    if (target != active_target && target != active_patch_id) {
+        build_default_speech(static_cast<uint8_t>(target), &temporary_speech);
+        (void)load_speech_override(static_cast<uint8_t>(target),
+                                   &temporary_speech);
+        speech = &temporary_speech;
+    }
+    std::strncpy(text, speech->phrase[phrase], capacity - 1u);
+    text[capacity - 1u] = '\0';
+    return true;
+}
+
+bool synth_editor_set_phrase_chunk(synth_t *synth, uint16_t target,
+                                   uint8_t phrase, uint8_t offset,
+                                   const uint8_t *text, uint8_t length,
+                                   bool final_chunk) {
+    if (target >= PRESET_STORE_PATCH_COUNT ||
+        phrase >= SAM_VOICE_PHRASE_COUNT ||
+        offset >= SAM_VOICE_PHRASE_LENGTH ||
+        length > SAM_VOICE_PHRASE_LENGTH - 1u - offset ||
+        (length != 0u && text == nullptr)) return false;
+    if (target != active_patch_id && !synth_editor_select(synth, target)) {
+        return false;
+    }
+    if (offset == 0u) std::memset(active_speech.phrase[phrase], 0,
+                                  SAM_VOICE_PHRASE_LENGTH);
+    for (uint8_t index = 0u; index < length; ++index) {
+        uint8_t character = text[index];
+        active_speech.phrase[phrase][offset + index] =
+            static_cast<char>(character >= 32u && character <= 126u ?
+                              character : ' ');
+    }
+    if (final_chunk) {
+        active_speech.phrase[phrase][offset + length] = '\0';
+    }
+    active_patch_dirty = true;
+    return true;
+}
+
 bool synth_editor_commit(const synth_t *synth, uint8_t scope, uint16_t target) {
     if (scope == SYNTH_EDITOR_SCOPE_PATCH && target == active_patch_id) {
         bool ok = preset_store_save(preset_store_patch_key(target),
                                     &active_patch, sizeof(active_patch));
+        if (ok) {
+            ok = save_speech_override(static_cast<uint8_t>(target),
+                                      active_speech);
+        }
         if (ok) active_patch_dirty = false;
         return ok;
     }
@@ -3465,7 +3743,13 @@ bool synth_editor_revert(synth_t *synth, uint8_t scope, uint16_t target) {
 bool synth_editor_restore(synth_t *synth, uint8_t scope, uint16_t target) {
     uint16_t key;
     if (scope == SYNTH_EDITOR_SCOPE_PATCH && target < PRESET_STORE_PATCH_COUNT) {
-        key = preset_store_patch_key(target);
+        bool ok = preset_store_erase(preset_store_patch_key(target));
+        ok = preset_store_erase(preset_store_speech_patch_key(target)) && ok;
+        ok = preset_store_erase(
+            preset_store_speech_extension_key(target, 0u)) && ok;
+        ok = preset_store_erase(
+            preset_store_speech_extension_key(target, 1u)) && ok;
+        return ok && synth_editor_revert(synth, scope, target);
     } else if (scope == SYNTH_EDITOR_SCOPE_BANK &&
                target < PRESET_STORE_BANK_COUNT) {
         key = preset_store_bank_key(static_cast<uint8_t>(target));

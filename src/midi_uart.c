@@ -42,6 +42,12 @@ static void __not_in_flash_func(enqueue)(uint8_t status, uint8_t data1,
     queue_write = next;
 }
 
+static void enqueue_usb_only(uint8_t status, uint8_t data1, uint8_t data2) {
+    uint8_t previous_write = queue_write;
+    enqueue(status, data1, data2, 3u);
+    if (queue_write != previous_write) queue[previous_write].uart_index = 0xffu;
+}
+
 void midi_uart_init(void) {
     uart_init(MIDI_UART, 31250u);
     gpio_set_function(PIN_MIDI_TX, GPIO_FUNC_UART);
@@ -104,6 +110,7 @@ void midi_service(void) {
             }
         }
 
+        if (event->uart_index == 0xffu) event->uart_index = event->length;
         while (event->uart_index < event->length &&
                uart_is_writable(MIDI_UART)) {
             uart_putc_raw(MIDI_UART, event->bytes[event->uart_index++]);
@@ -155,6 +162,10 @@ void __not_in_flash_func(midi_note_off)(uint8_t channel, uint8_t note) {
 
 void midi_control_change(uint8_t channel, uint8_t control, uint8_t value) {
     enqueue((uint8_t)(0xb0u | (channel & 0x0fu)), control, value, 3u);
+}
+
+void midi_usb_control_change(uint8_t channel, uint8_t control, uint8_t value) {
+    enqueue_usb_only((uint8_t)(0xb0u | (channel & 0x0fu)), control, value);
 }
 
 void midi_program_change(uint8_t channel, uint8_t program) {

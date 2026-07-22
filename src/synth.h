@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "sensor.h"
@@ -19,6 +20,10 @@
 #define SYNTH_EDITOR_PATCH_SHARED_COUNT 113u
 #define SYNTH_EDITOR_BANK_PARAMETER_COUNT 19u
 #define SYNTH_EDITOR_GLOBAL_PARAMETER_COUNT 18u
+#define SYNTH_EDITOR_SPEECH_PARAMETER_COUNT 10u
+#define SYNTH_EDITOR_SPEECH_LANE 4u
+#define SYNTH_EDITOR_SPEECH_PHRASE_COUNT 10u
+#define SYNTH_EDITOR_SPEECH_PHRASE_LENGTH 48u
 
 typedef struct {
     uint32_t frames_left;
@@ -77,6 +82,8 @@ typedef struct synth {
     uint8_t sensor_transient_decay_percent;
     uint8_t sensor_calibration_learning;
     uint8_t sensor_calibration_recovery_tenths_percent;
+    uint8_t speech_last_bar;
+    uint8_t speech_last_phrase;
     uint16_t sensor_minimum_interval_us;
     uint16_t sensor_activity_timeout_ms;
     uint8_t euclid_steps[3];
@@ -133,6 +140,12 @@ bool synth_editor_set(synth_t *synth, uint8_t scope, uint16_t target,
 bool synth_editor_commit(const synth_t *synth, uint8_t scope, uint16_t target);
 bool synth_editor_revert(synth_t *synth, uint8_t scope, uint16_t target);
 bool synth_editor_restore(synth_t *synth, uint8_t scope, uint16_t target);
+bool synth_editor_get_phrase(synth_t *synth, uint16_t target,
+                             uint8_t phrase, char *text, size_t capacity);
+bool synth_editor_set_phrase_chunk(synth_t *synth, uint16_t target,
+                                   uint8_t phrase, uint8_t offset,
+                                   const uint8_t *text, uint8_t length,
+                                   bool final_chunk);
 
 #ifdef __cplusplus
 }

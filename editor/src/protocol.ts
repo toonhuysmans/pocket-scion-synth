@@ -2,8 +2,9 @@ export const Scope = { Patch: 0, Bank: 1, Global: 2, Sensor: 3 } as const;
 export const Command = {
   Hello: 0x01, Select: 0x02, Get: 0x03, Set: 0x04,
   Commit: 0x05, Revert: 0x06, Restore: 0x07, SensorSnapshot: 0x08,
+  GetPhrase: 0x09, SetPhrase: 0x0a,
 } as const;
-const Response = { Ack: 0x40, Capabilities: 0x41, Value: 0x42, SensorSnapshot: 0x43, Nack: 0x7f };
+const Response = { Ack: 0x40, Capabilities: 0x41, Value: 0x42, SensorSnapshot: 0x43, Phrase: 0x44, Nack: 0x7f };
 const SIGNATURE = [0x7d, 0x50, 0x53, 0x01];
 
 interface MidiMessageEventLike { data: Uint8Array }
@@ -25,6 +26,9 @@ export interface Capabilities {
   bankParameters: number;
   globalParameters: number;
   flashMiB: number;
+  speechParameters: number;
+  speechPhrases: number;
+  speechPhraseLength: number;
 }
 
 interface Pending {
@@ -108,6 +112,9 @@ export class PocketScionConnection extends EventTarget {
       sceneParameters: p[6], patchSharedParameters: p[7],
       bankParameters: p[8], globalParameters: p[9],
       flashMiB: p[10] ?? 0,
+      speechParameters: p[11] ?? 0,
+      speechPhrases: p[12] ?? 0,
+      speechPhraseLength: p[13] ?? 0,
     };
     this.patchCount = capabilities.patchCount;
     return capabilities;
@@ -134,6 +141,40 @@ export class PocketScionConnection extends EventTarget {
       payload[index * 2] | (payload[index * 2 + 1] << 7));
   }
 
+  async getPhrase(target: number, phrase: number): Promise<string> {
+    const response = await this.request(Command.GetPhrase,
+      [...valueBytes(target), phrase]);
+    if (response[0] !== Response.Phrase || response[2] !== phrase) {
+      throw new Error("Unexpected speech phrase response.");
+    }
+    const length = response[3] ?? 0;
+    return String.fromCharCode(...response.slice(4, 4 + length));
+  }
+
+  async getActivePhrase(phrase: number): Promise<string> {
+    // 0x3fff is reserved by firmware as a read-only alias for the currently
+    // active patch. Unlike getPhrase(target), it can never select a patch.
+    return this.getPhrase(0x3fff, phrase);
+  }
+
+  async setPhrase(target: number, phrase: number, text: string): Promise<void> {
+    const bytes = [...text].map(character => character.charCodeAt(0) & 0x7f);
+    const maximum = 47;
+    bytes.length = Math.min(bytes.length, maximum);
+    const chunkSize = 24;
+    if (!bytes.length) {
+      await this.request(Command.SetPhrase,
+        [...valueBytes(target), phrase, 0, 1]);
+      return;
+    }
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      const chunk = bytes.slice(offset, offset + chunkSize);
+      const final = offset + chunk.length >= bytes.length ? 1 : 0;
+      await this.request(Command.SetPhrase,
+        [...valueBytes(target), phrase, offset, final, ...chunk]);
+    }
+  }
+
   private sendRequest(command: number, payload: number[], timeout: number): Promise<number[]> {
     if (!this.output) return Promise.reject(new Error("Pocket SCION is not connected."));
     const request = this.requestId = (this.requestId + 1) & 0x7f;
@@ -149,6 +190,9 @@ export class PocketScionConnection extends EventTarget {
   }
 
   private receive(data: Uint8Array): void {
+    if (data.length && data[0] !== 0xf0) {
+      this.dispatchEvent(new CustomEvent<number[]>("midi", { detail: [...data] }));
+    }
     const bank = decodeBankSelection(data);
     if (bank !== undefined) {
       this.selectedBank = bank;

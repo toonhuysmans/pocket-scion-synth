@@ -74,12 +74,15 @@ Repeated pitches may be tied into longer notes rather than retriggered.
 | CC 71 | Filter resonance |
 | CC 74 | Filter cutoff |
 | Pitch Bend | Sensor-derived pitch movement when enabled |
+| CC 119 (USB only, SAM branch) | Triggered speech phrase index 0–9 for visuals |
 
 These messages allow an external synth, DAW, or visual system to follow the
 same plant-driven movement as the internal synth. Standard Bank Select and
 Program Change messages identify sixteen banks with sixteen patches per bank.
 Bank Select CC0 plus Program Change is authoritative across the complete
 library; legacy combined-patch CC23 remains limited to banks 0–7.
+CC 119 is editor metadata and is intentionally omitted from DIN MIDI; all
+musician-facing performance messages continue to appear on both outputs.
 
 Raw Output Mode produces the sensor pulse train as audio; it does not send raw
 sensor pulses over MIDI, and generated MIDI notes stop while raw mode is active.

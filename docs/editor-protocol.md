@@ -36,6 +36,8 @@ timeout and allow up to 6 seconds for flash commands.
 | `06` | Revert | scope, target LSB [, target MSB] | `40` ACK |
 | `07` | Restore compiled default | scope, target LSB [, target MSB] | `40` ACK |
 | `08` | Sensor snapshot | none | `43` four- or fourteen-value snapshot |
+| `09` | Get speech phrase | target LSB, target MSB, phrase index | `44` Phrase |
+| `0a` | Set speech phrase chunk | target LSB, target MSB, phrase index, offset, final, ASCII bytes | `40` ACK |
 
 `ACK`/`NACK` payloads contain the original command and status/error code.
 `VALUE` echoes scope, target, lane, and parameter followed by the 14-bit value.
@@ -63,11 +65,16 @@ Firmware reporting at most 128 patches uses the original one-byte target.
 Firmware reporting more than 128 patches uses two 7-bit bytes, least
 significant first, for every target-bearing command. Firmware v2.5 accepts
 both layouts; this keeps the hosted editor compatible with v2.4 devices.
+Command `09` is read-only: reading any patch phrase never changes the selected
+instrument. Target `0x3fff` is an alias for the currently active patch and is
+intended for live visualizers that follow hardware program changes.
 
 Capabilities payload is firmware major, minor, patch; patch count LSB/MSB;
 bank count; scene-parameter count; shared-patch count; bank-parameter count;
 and global-parameter count.
-The final capability byte reports the startup-detected flash capacity in MiB.
+The next capability byte reports the startup-detected flash capacity in MiB.
+Firmware 2.6 and later report speech-parameter count, phrase count, and maximum
+phrase storage length. Older firmware ends the response after flash capacity.
 
 ## Address spaces
 
@@ -91,6 +98,10 @@ and restore commands.
   and cutoff/resonance/morph/LFO-rate motion 109–112. Bass and Lead lane
   parameters 41–46 are unavailable because their packed storage belongs to
   these lane-3 parameters; only Pad lane 1 exposes the effective shared FX.
+  Firmware 2.7 uses lane 4 for ten numeric SAM voice parameters:
+  enabled, level, speed, pitch, mouth, throat, phrase density, and sensor
+  influence, motion chance, and motion amount. Speech phrase strings use commands `09`/`0a`, not numeric `GET`
+  and `SET`. Phrase writes are 7-bit ASCII chunks; `final` terminates the text.
 - Bank targets are 0–15. Parameters are tempo, breath maximum, modulation
   maximum, cutoff range, resonance range, morph range, LFO-rate range, bend
   percent, biased density offset, ratchet percent, gate percent, and motion

@@ -148,6 +148,35 @@ export const globalParameters: Parameter[] = [
   { id: 17, name: "Calibration recovery", section: "Sensor calibration", min: 1, max: 50, display: v => `${(v / 10).toFixed(1)}% / window` },
 ];
 
+export const voiceParameters: Parameter[] = [
+  { id: 0, name: "Enabled", section: "Voice trigger", min: 0, max: 1,
+    values: [{ value: 0, label: "Off" }, { value: 1, label: "On" }] },
+  { id: 1, name: "Voice level", section: "Voice trigger", min: 0, max: 127,
+    display: value => `${Math.round(value / 127 * 100)}%` },
+  { id: 2, name: "Speed", section: "SAM voice", min: 1, max: 255,
+    display: value => `${value} · ${value < 55 ? "fast" : value > 90 ? "slow" : "natural"}` },
+  { id: 3, name: "Pitch", section: "SAM voice", min: 0, max: 255 },
+  { id: 4, name: "Mouth", section: "SAM voice", min: 0, max: 255 },
+  { id: 5, name: "Throat", section: "SAM voice", min: 0, max: 255 },
+  { id: 6, name: "Phrase density", section: "Voice trigger", min: 0, max: 127,
+    display: value => `${Math.round(value / 127 * 100)}% base chance / bar` },
+  { id: 7, name: "Sensor influence", section: "Voice trigger", min: 0, max: 127,
+    display: value => `${Math.round(value / 127 * 100)}%` },
+  { id: 8, name: "Motion chance", section: "Voice motion", min: 0, max: 127,
+    display: value => `${Math.round(value / 127 * 100)}% of phrases` },
+  { id: 9, name: "Motion amount", section: "Voice motion", min: 0, max: 127,
+    display: value => `${Math.round(value / 127 * 100)}%` },
+];
+
+export const voicePresets = [
+  { name: "SAM", speed: 72, pitch: 64, mouth: 128, throat: 128 },
+  { name: "Elf", speed: 72, pitch: 64, mouth: 110, throat: 160 },
+  { name: "Little robot", speed: 92, pitch: 60, mouth: 190, throat: 190 },
+  { name: "Stuffy", speed: 82, pitch: 72, mouth: 105, throat: 110 },
+  { name: "Old lady", speed: 82, pitch: 32, mouth: 145, throat: 145 },
+  { name: "Extra-terrestrial", speed: 100, pitch: 64, mouth: 200, throat: 150 },
+] as const;
+
 export const bankNames = [
   "Legacy", "Foundation", "Organic", "Percussive", "Bass & Lead", "Atmosphere", "Spectral", "Extreme",
   "Dub Techno", "Motorik", "Polyrhythmic Organic", "Cinematic", "Acid & Electro", "Broken Beat & IDM", "Minimal Phase", "Chiptune",

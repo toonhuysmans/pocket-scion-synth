@@ -299,5 +299,6 @@ mode or channels 1–3 in multichannel mode.
 | CC 22 | Root MIDI note 24–72 |
 | CC 74 / CC 71 | Live filter cutoff / resonance |
 | CC 1 / CC 2 | Live modulation / breath |
+| CC 119 (USB only, SAM branch) | Triggered speech phrase index 0–9 |
 | Pitch Bend | Live 14-bit bend when enabled; center otherwise |
 | CC 123 | All Notes Off during mode/program transitions |

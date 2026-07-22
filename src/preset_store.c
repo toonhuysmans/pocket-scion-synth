@@ -9,7 +9,10 @@
 #define STORE_MAGIC 0x5343494fu
 #define STORE_VERSION 2u
 #define STORE_KEY_COUNT PRESET_STORE_KEY_COUNT
-#define STORE_REGION_SIZE (256u * 1024u)
+// 576 KiB provides 1152 journal pages per half. Its upper half contains the
+// former final-256-KiB store region, so existing records remain discoverable
+// and migrate naturally on the next compaction.
+#define STORE_REGION_SIZE (576u * 1024u)
 #define STORE_HALF_SIZE (STORE_REGION_SIZE / 2u)
 #define STORE_PAGES_PER_HALF (STORE_HALF_SIZE / FLASH_PAGE_SIZE)
 #define STORE_SECTORS_PER_HALF (STORE_HALF_SIZE / FLASH_SECTOR_SIZE)

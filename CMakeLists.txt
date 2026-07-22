@@ -27,16 +27,21 @@ add_executable(pocket_scion_synth
     src/midi_uart.c
     src/preset_store.c
     src/raw_capture.c
+    src/sam_voice.c
     src/sensor.c
     src/sensor_math.c
     src/status_rgb.c
     src/synth.cpp
     src/usb_descriptors.c
+    vendor/sam/debug.c
+    vendor/sam/reciter.c
+    vendor/sam/render.c
+    vendor/sam/sam.c
 )
 
 pico_set_program_name(pocket_scion_synth "Pocket SCION PRA32-U")
-pico_set_program_version(pocket_scion_synth "2.5.0")
-pico_set_program_description(pocket_scion_synth "Bass/percussion, pad and lead PRA32-U synthesizer")
+pico_set_program_version(pocket_scion_synth "2.7.0")
+pico_set_program_description(pocket_scion_synth "Three-lane PRA32-U synthesizer with generative SAM voice")
 pico_set_program_url(pocket_scion_synth "https://github.com/toonhuysmans/pocket-scion-synth")
 
 pico_generate_pio_header(pocket_scion_synth
@@ -48,13 +53,18 @@ pico_generate_pio_header(pocket_scion_synth
 
 target_include_directories(pocket_scion_synth PRIVATE src)
 target_include_directories(pocket_scion_synth SYSTEM PRIVATE vendor/pra32-u)
+target_include_directories(pocket_scion_synth SYSTEM PRIVATE vendor/sam)
+set_source_files_properties(
+    vendor/sam/debug.c vendor/sam/reciter.c vendor/sam/render.c vendor/sam/sam.c
+    PROPERTIES COMPILE_OPTIONS "-w;-fcommon"
+)
 target_compile_options(pocket_scion_synth PRIVATE
     -Wall -Wextra -Wshadow -Wconversion
 )
 target_compile_definitions(pocket_scion_synth PRIVATE
     SCION_RGB_OUTPUT_ENABLED=1
     # All DSP and protocol storage is static; reserve only the SDK minimum.
-    PICO_HEAP_SIZE=0x100
+    PICO_HEAP_SIZE=0
 )
 target_link_libraries(pocket_scion_synth PRIVATE
     pico_stdlib

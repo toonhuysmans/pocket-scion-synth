@@ -18,6 +18,7 @@ void midi_set_chord_reset_input_handler(void (*handler)(bool clear_latch));
 void midi_note_on(uint8_t channel, uint8_t note, uint8_t velocity);
 void midi_note_off(uint8_t channel, uint8_t note);
 void midi_control_change(uint8_t channel, uint8_t control, uint8_t value);
+void midi_usb_control_change(uint8_t channel, uint8_t control, uint8_t value);
 void midi_program_change(uint8_t channel, uint8_t program);
 void midi_pitch_bend(uint8_t channel, uint16_t value);
 

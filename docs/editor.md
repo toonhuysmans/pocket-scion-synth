@@ -46,6 +46,11 @@ active patch + active bank + globals in RP2040 RAM
 browser knobs and selectors         └── Save → CRC-protected flash record
 ```
 
+On the SAM voice branch, each patch also loads separate voice records with
+ten numeric controls and ten sentences. **Save patch**, Revert, Restore,
+patch JSON, and bank JSON treat the synthesis patch and voice record as one
+musical patch.
+
 Editor changes first alter the active RAM snapshot and are heard immediately.
 They are not persistent until the matching Save button is used. Runtime sensor
 modulation and per-hit articulation are applied after the stored values and do
@@ -73,6 +78,66 @@ GPIO0 sensor edges
     → bass/percussion, pad, and lead note events
     → matching USB and DIN MIDI output
 ```
+
+The **SAM voice** tab adds a parallel event path. Phrase density establishes a
+per-bar trigger chance, while Sensor influence lets pressure, expression, and
+transients raise it. A trigger chooses one of ten editable sentences. Speed,
+Pitch, Mouth, and Throat are the native SAM character controls; the supplied
+voice presets are starting points and do not hide or lock any values. Motion
+chance occasionally varies Speed, Pitch, Mouth, and Throat around their stored
+values; Motion amount sets the bounded excursion without changing the saved
+centre. Spoken audio joins the dry bass/lead mix before the pad's shared chorus
+and delay.
+
+### Visual performance
+
+The **Visual performance** tab turns incoming USB MIDI into a continuously
+generated canvas performance. Note number, lane, and event order jointly choose
+rotating anchors across the full canvas; channels 1–3 retain distinct Bass,
+Pad, and Lead colours and motion, while velocity controls burst energy.
+Repeated note-ons make ratchets visible. Cutoff, resonance, modulation, breath,
+and pitch bend reshape lifetime, rings, orbit, glow, and centre position. The
+active bank LED colour supplies the palette, so patch changes alter both sound
+and visual character. **Persistence** controls trails, **Clear** resets the
+field, and **Full screen** presents only the performance canvas.
+Full-screen mode includes Bank and Instrument selectors and follows hardware
+bank/program changes without replacing the canvas or leaving full screen. Each of the
+sixteen instrument positions has a deliberate scene character controlling form
+scale, geometry balance, particle texture, and camera range. It also owns a
+six-colour working palette and dark background family: for example Rooted uses
+ochre/rust/moss, Liquid uses cyan/teal/violet, Acid uses acid yellow/magenta/
+cyan, and Pixel uses hard primary colours. The active bank RGB supplies a
+subtle common tint rather than replacing the instrument palette.
+Phrase captions use the protocol's active-patch alias, so an unfinished caption
+refresh can never re-select an earlier instrument after a rapid program change.
+The camera continuously runs independent, large-magnitude pan (about 55
+seconds), push/pull zoom (about 90 seconds), and horizon tilt (about 70 seconds)
+cycles, even without notes or instrument changes. Faster rotation, shear, and framing motion respond to
+the instrument character and incoming modulation, breath, resonance, and bend
+controllers. Notes only occasionally add short camera kicks; closely spaced
+ratchets have a higher chance of producing one glitch-like pan, zoom, and tilt
+jump, followed by a cooldown and a decay within a few frames.
+When SAM triggers, firmware sends USB-only CC 119 with the phrase index and the editor
+shows the complete sentence while its individual words enter from the edges,
+orbit toward the centre, and form temporary field-line constellations. The slow
+macro drift, glowing word particles, linked fields, and layered depth take
+visual inspiration from [DANS](https://github.com/toonhuysmans/DANS), adapted
+here to the Pocket SCION's three MIDI lanes and live parameter motion.
+The central lyric display advances one word at a time at a rate derived from
+SAM Speed. The main image is assembled from several visual grammars rather
+than a single particle system: broad colour fields, translucent capsule-shaped
+beams, orbital discs, curved ribbons, arc fans, and sparse line
+constellations. Notes choose anchors across the complete canvas, while patch
+changes select a different balance and ordering of those forms. Bass,
+percussion, pad, and lead events retain their lane identity without being
+confined to three predictable horizontal strips. Small linked particles,
+branching glimmer fractals, and sparks now provide texture between the larger
+structures. Velocity and rapid ratchets briefly retrace recent forms with
+white contour echoes and add horizontal displacement slices; both decay
+quickly so the performance remains legible without a flat full-screen flash.
+The layered scale, saturated
+fields, translucent geometry, and fine orbital detail also take visual
+inspiration from [Manolo Gamboa Naon's generative work](https://images.squarespace-cdn.com/content/v1/5c77350965a707ed1710a1bc/1592324984483-YGAI488E2HV60HX424FZ/Generative+Art+by+Manolo+Gamboa+Naon.jpeg?format=2500w), without reproducing a fixed composition.
 
 The Scale and Motif controls determine pitch material; Euclidean rhythm decides
 when each lane can play. Sensor data changes pulse density and rotation rather

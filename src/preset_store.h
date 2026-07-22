@@ -14,7 +14,10 @@ enum {
     PRESET_STORE_GLOBAL_KEY = 136,
     PRESET_STORE_EXTENDED_PATCH_BASE = 137,
     PRESET_STORE_EXTENDED_BANK_BASE = 265,
-    PRESET_STORE_KEY_COUNT = 273,
+    PRESET_STORE_SPEECH_PATCH_BASE = 273,
+    PRESET_STORE_SPEECH_EXTENSION_A_BASE = 529,
+    PRESET_STORE_SPEECH_EXTENSION_B_BASE = 785,
+    PRESET_STORE_KEY_COUNT = 1041,
 };
 
 // Preserve every v2.4 key while placing the upper 128 patches and eight banks
@@ -29,6 +32,23 @@ static inline uint16_t preset_store_bank_key(uint8_t bank_id) {
     if (bank_id >= PRESET_STORE_BANK_COUNT) return UINT16_MAX;
     if (bank_id < 8u) return (uint16_t)(128u + bank_id);
     return (uint16_t)(PRESET_STORE_EXTENDED_BANK_BASE + bank_id - 8u);
+}
+
+static inline uint16_t preset_store_speech_patch_key(uint16_t patch_id) {
+    return patch_id < PRESET_STORE_PATCH_COUNT
+        ? (uint16_t)(PRESET_STORE_SPEECH_PATCH_BASE + patch_id)
+        : UINT16_MAX;
+}
+
+static inline uint16_t preset_store_speech_extension_key(uint16_t patch_id,
+                                                         uint8_t extension) {
+    if (patch_id >= PRESET_STORE_PATCH_COUNT || extension > 1u) {
+        return UINT16_MAX;
+    }
+    const uint16_t base = extension == 0u
+        ? PRESET_STORE_SPEECH_EXTENSION_A_BASE
+        : PRESET_STORE_SPEECH_EXTENSION_B_BASE;
+    return (uint16_t)(base + patch_id);
 }
 
 bool preset_store_init(void);

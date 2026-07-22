@@ -11,6 +11,8 @@ static uint8_t response[96];
 static uint16_t response_length;
 static uint16_t selected_patch;
 static uint16_t set_value;
+static uint16_t phrase_target;
+static char phrase_value[48] = "HELLO PLANT";
 
 uint32_t preset_store_flash_size(void) { return 2u * 1024u * 1024u; }
 bool sensor_has_recent_activity(void) { return true; }
@@ -58,6 +60,24 @@ bool synth_editor_revert(synth_t *synth, uint8_t scope, uint16_t target) {
 bool synth_editor_restore(synth_t *synth, uint8_t scope, uint16_t target) {
     (void)synth; (void)scope; (void)target; return true;
 }
+bool synth_editor_get_phrase(synth_t *synth, uint16_t target,
+                             uint8_t phrase, char *text, size_t capacity) {
+    (void)synth; (void)phrase;
+    phrase_target = target;
+    strncpy(text, phrase_value, capacity - 1u);
+    text[capacity - 1u] = '\0';
+    return true;
+}
+bool synth_editor_set_phrase_chunk(synth_t *synth, uint16_t target,
+                                   uint8_t phrase, uint8_t offset,
+                                   const uint8_t *text, uint8_t length,
+                                   bool final_chunk) {
+    (void)synth; (void)target; (void)phrase;
+    if (offset == 0u) memset(phrase_value, 0, sizeof(phrase_value));
+    memcpy(&phrase_value[offset], text, length);
+    if (final_chunk) phrase_value[offset + length] = '\0';
+    return true;
+}
 
 static uint8_t checksum(const uint8_t *bytes, unsigned length) {
     uint8_t sum = 0u;
@@ -69,7 +89,7 @@ static uint8_t checksum(const uint8_t *bytes, unsigned length) {
 
 static void send_request(uint8_t command, uint8_t request,
                          const uint8_t *payload, uint8_t payload_length) {
-    uint8_t message[32] = {0xf0u, 0x7du, 0x50u, 0x53u, 1u, command, request};
+    uint8_t message[64] = {0xf0u, 0x7du, 0x50u, 0x53u, 1u, command, request};
     memcpy(&message[7], payload, payload_length);
     unsigned length = 7u + payload_length;
     message[length] = checksum(&message[1], length - 1u);
@@ -99,6 +119,7 @@ int main(void) {
     assert(response[12] == 16u);
     assert(response[13] == SYNTH_EDITOR_SCENE_PARAMETER_COUNT);
     assert(response[14] == SYNTH_EDITOR_PATCH_SHARED_COUNT);
+    assert(response[18] == SYNTH_EDITOR_SPEECH_PARAMETER_COUNT);
 
     const uint8_t select[] = {42u};
     send_request(0x02u, 8u, select, sizeof(select));
@@ -127,6 +148,23 @@ int main(void) {
     assert(response[29] == 3u);  // Dropped edges.
     assert(response[31] == 4u);  // Rejected fast edges.
     assert(response[33] == 5u);  // Last accepted edge age in milliseconds.
+
+    const uint8_t get_phrase[] = {42u, 0u, 1u};
+    send_request(0x09u, 12u, get_phrase, sizeof(get_phrase));
+    assert_response(0x44u, 12u);
+    assert(response[7] == 1u && response[8] == 11u);
+    assert(phrase_target == 42u);
+
+    const uint8_t get_active_phrase[] = {127u, 127u, 1u};
+    send_request(0x09u, 14u, get_active_phrase,
+                 sizeof(get_active_phrase));
+    assert_response(0x44u, 14u);
+    assert(phrase_target == 0x3fffu);
+
+    const uint8_t set_phrase[] = {42u, 0u, 2u, 0u, 1u, 'G', 'R', 'O', 'W'};
+    send_request(0x0au, 13u, set_phrase, sizeof(set_phrase));
+    assert_response(0x40u, 13u);
+    assert(strcmp(phrase_value, "GROW") == 0);
 
     uint8_t corrupt[] = {0xf0u, 0x7du, 0x50u, 0x53u, 1u, 1u, 10u, 1u, 0xf7u};
     response_length = 0u;

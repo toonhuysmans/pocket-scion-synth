@@ -11,7 +11,7 @@
 #define MANUFACTURER_DEVELOPMENT 0x7du
 #define PRODUCT_0 0x50u
 #define PRODUCT_1 0x53u
-#define RX_CAPACITY 32u
+#define RX_CAPACITY 64u
 
 enum {
     COMMAND_HELLO = 0x01,
@@ -22,10 +22,13 @@ enum {
     COMMAND_REVERT = 0x06,
     COMMAND_RESTORE = 0x07,
     COMMAND_SENSOR_SNAPSHOT = 0x08,
+    COMMAND_GET_PHRASE = 0x09,
+    COMMAND_SET_PHRASE = 0x0a,
     RESPONSE_ACK = 0x40,
     RESPONSE_CAPABILITIES = 0x41,
     RESPONSE_VALUE = 0x42,
     RESPONSE_SENSOR_SNAPSHOT = 0x43,
+    RESPONSE_PHRASE = 0x44,
     RESPONSE_NACK = 0x7f,
 };
 
@@ -44,7 +47,7 @@ static uint8_t checksum(const uint8_t *bytes, size_t length) {
 
 static void send_response(uint8_t command, uint8_t request,
                           const uint8_t *payload, uint8_t payload_length) {
-    uint8_t message[48];
+    uint8_t message[96];
     uint8_t length = 0u;
     message[length++] = 0xf0u;
     message[length++] = MANUFACTURER_DEVELOPMENT;
@@ -92,7 +95,7 @@ static void process_message(void) {
 
     if (command == COMMAND_HELLO && payload_length == 0u) {
         const uint8_t capabilities[] = {
-            2u, 5u, 0u,
+            2u, 7u, 0u,
             (uint8_t)(PRESET_STORE_PATCH_COUNT & 0x7fu),
             (uint8_t)((PRESET_STORE_PATCH_COUNT >> 7u) & 0x7fu),
             PRESET_STORE_BANK_COUNT,
@@ -101,6 +104,9 @@ static void process_message(void) {
             SYNTH_EDITOR_BANK_PARAMETER_COUNT,
             SYNTH_EDITOR_GLOBAL_PARAMETER_COUNT,
             (uint8_t)(preset_store_flash_size() / (1024u * 1024u)),
+            SYNTH_EDITOR_SPEECH_PARAMETER_COUNT,
+            SYNTH_EDITOR_SPEECH_PHRASE_COUNT,
+            SYNTH_EDITOR_SPEECH_PHRASE_LENGTH,
         };
         send_response(RESPONSE_CAPABILITIES, request, capabilities,
                       sizeof(capabilities));
@@ -168,6 +174,32 @@ static void process_message(void) {
         } else {
             ok = synth_editor_restore(controlled_synth, payload[0], target);
         }
+    } else if (command == COMMAND_GET_PHRASE && payload_length == 3u) {
+        const uint16_t target = (uint16_t)(payload[0] |
+            ((uint16_t)payload[1] << 7u));
+        char phrase[SYNTH_EDITOR_SPEECH_PHRASE_LENGTH];
+        ok = synth_editor_get_phrase(controlled_synth, target, payload[2],
+                                     phrase, sizeof(phrase));
+        if (ok) {
+            uint8_t response[SYNTH_EDITOR_SPEECH_PHRASE_LENGTH + 2u];
+            size_t phrase_length = 0u;
+            while (phrase_length < sizeof(phrase) &&
+                   phrase[phrase_length] != '\0') ++phrase_length;
+            response[0] = payload[2];
+            response[1] = (uint8_t)phrase_length;
+            for (size_t index = 0u; index < phrase_length; ++index) {
+                response[index + 2u] = (uint8_t)phrase[index] & 0x7fu;
+            }
+            send_response(RESPONSE_PHRASE, request, response,
+                          (uint8_t)(phrase_length + 2u));
+            return;
+        }
+    } else if (command == COMMAND_SET_PHRASE && payload_length >= 5u) {
+        const uint16_t target = (uint16_t)(payload[0] |
+            ((uint16_t)payload[1] << 7u));
+        ok = synth_editor_set_phrase_chunk(
+            controlled_synth, target, payload[2], payload[3], &payload[5],
+            (uint8_t)(payload_length - 5u), payload[4] != 0u);
     } else if (command == COMMAND_SENSOR_SNAPSHOT && payload_length == 0u) {
         uint16_t values[14] = {0u};
         uint8_t response[28];

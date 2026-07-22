@@ -6,6 +6,13 @@ Instead of selecting prerecorded samples, it generates every sound live with
 oscillators, filters, envelopes, LFOs, chorus, delay, and three distinct
 musical roles: bass/percussion, pad, and lead.
 
+This experimental `sam-voice` branch adds generatively triggered speech using
+[Software Automatic Mouth](docs/sam-voice.md). Ten editable phrases and all
+native SAM voice-character controls are stored per patch and exposed in the
+browser editor. Its MIDI-driven live visual performance is included in the
+same editor. The ready-to-flash experimental build is
+[`releases/pocket_scion_synth_v2.7.0-sam.uf2`](releases/pocket_scion_synth_v2.7.0-sam.uf2).
+
 Release v2.5.0 expands the multi-timbral instrument to 256 patches and adds
 tunable adaptive plant-sensor calibration with live diagnostic graphs.
 The previous [v2.3.0 single-timbre release](https://github.com/toonhuysmans/pocket-scion-synth/releases/tag/v2.3.0)
@@ -21,6 +28,7 @@ respective owner.
 
 - 256 deliberately designed patches across sixteen banks
 - Three sensor-modulated Euclidean rhythm lanes
+- Generative SAM speech with ten editable phrases and bounded character motion per patch
 - Separate bass/percussion, pad, and lead PRA32-U synthesis at 48 kHz
 - Sensor control of notes, expression, timbre, rhythm, ratchets, and pitch bend
 - DIN MIDI output plus bidirectional class-compliant USB MIDI
@@ -36,8 +44,10 @@ respective owner.
 ## Install the compiled firmware
 
 The ready-to-flash build is
-[`pocket_scion_synth_v2.5.0.uf2`](https://github.com/toonhuysmans/pocket-scion-synth/releases/download/v2.5.0/pocket_scion_synth_v2.5.0.uf2)
-from the [v2.5.0 release](https://github.com/toonhuysmans/pocket-scion-synth/releases/tag/v2.5.0).
+[`pocket_scion_synth_v2.7.0-sam.uf2`](https://github.com/toonhuysmans/pocket-scion-synth/releases/download/v2.7.0-sam/pocket_scion_synth_v2.7.0-sam.uf2)
+from the [v2.7.0-sam release](https://github.com/toonhuysmans/pocket-scion-synth/releases/tag/v2.7.0-sam).
+The release also contains a compiled archive of the matching voice editor and
+MIDI-driven live visual performance.
 
 1. Disconnect the Pocket SCION from USB.
 2. Hold its RP2040 boot-selection control while reconnecting USB, or otherwise
@@ -49,7 +59,7 @@ from the [v2.5.0 release](https://github.com/toonhuysmans/pocket-scion-synth/rel
 The SHA-256 digest is:
 
 ```text
-3397c4337ca47e358c64ad296834d90c62933368de25bd8d5ba52950d56023f6
+3b405bd832570ec33cdb936c16680c9f552ee9920d6d08bab79d67037cdc5401
 ```
 
 Use moderate monitoring volume for the first boot. A short A/E/A startup chord
@@ -125,6 +135,7 @@ parameter reference.
 - [Controls, modes, and MIDI](docs/controls.md)
 - [USB patch editor](docs/editor.md)
 - [Open editor SysEx protocol](docs/editor-protocol.md)
+- [SAM voice architecture and parameters](docs/sam-voice.md)
 - [Clean-room reverse engineering](docs/reverse-engineering.md)
 - [Building from source](docs/building.md)
 - [Hardware testing checklist](docs/hardware-testing.md)
@@ -154,6 +165,10 @@ The new platform firmware and documentation are MIT licensed. The vendored
 PRA32-U DSP is CC0 1.0 Universal and retains its upstream license and provenance
 inside [`vendor/pra32-u`](vendor/pra32-u). See
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+The experimental SAM branch also includes reverse-engineered SAM source for
+which its upstream repository supplies no explicit license; see
+[`vendor/sam/README.md`](vendor/sam/README.md) for provenance and the licensing note.
 
 No original Pocket SCION firmware image, manual, extracted audio, or sample
 content is distributed here.
