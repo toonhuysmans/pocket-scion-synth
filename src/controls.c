@@ -24,32 +24,34 @@ typedef struct {
     uint8_t candidate_count;
     uint32_t next_repeat_us;
     bool action_sent;
+    bool long_fired;
+    uint32_t pressed_us;
     control_event_t direct_event;
     control_event_t modified_event;
 } button_t;
 
 static button_t buttons[BUTTON_COUNT] = {
 #if PICO_RP2350
-    { PIN_BUTTON_SENS_DOWN, false, false, 0, 0, false,
+    { PIN_BUTTON_SENS_DOWN, false, false, 0, 0, false, false, 0,
       CONTROL_PARAMETER_NEXT, CONTROL_NONE },
-    { PIN_BUTTON_SENS_UP, false, false, 0, 0, false,
+    { PIN_BUTTON_SENS_UP, false, false, 0, 0, false, false, 0,
       CONTROL_PARAMETER_PREVIOUS, CONTROL_NONE },
-    { PIN_BUTTON_MODE, false, false, 0, 0, false,
+    { PIN_BUTTON_MODE, false, false, 0, 0, false, false, 0,
       CONTROL_PARAMETER_INCREASE, CONTROL_NONE },
-    { PIN_BUTTON_ROOT_DOWN, false, false, 0, 0, false,
+    { PIN_BUTTON_ROOT_DOWN, false, false, 0, 0, false, false, 0,
       CONTROL_PARAMETER_DECREASE, CONTROL_NONE },
-    { PIN_BUTTON_ROOT_UP, false, false, 0, 0, false,
+    { PIN_BUTTON_ROOT_UP, false, false, 0, 0, false, false, 0,
       CONTROL_NONE, CONTROL_NONE },
 #else
-    { PIN_BUTTON_SENS_DOWN, false, false, 0, 0, false,
+    { PIN_BUTTON_SENS_DOWN, false, false, 0, 0, false, false, 0,
       CONTROL_SENSITIVITY_DOWN, CONTROL_DURATION_DOWN },
-    { PIN_BUTTON_SENS_UP, false, false, 0, 0, false,
+    { PIN_BUTTON_SENS_UP, false, false, 0, 0, false, false, 0,
       CONTROL_SENSITIVITY_UP, CONTROL_DURATION_UP },
-    { PIN_BUTTON_MODE, false, false, 0, 0, false,
+    { PIN_BUTTON_MODE, false, false, 0, 0, false, false, 0,
       CONTROL_MODE, CONTROL_NONE },
-    { PIN_BUTTON_ROOT_DOWN, false, false, 0, 0, false,
+    { PIN_BUTTON_ROOT_DOWN, false, false, 0, 0, false, false, 0,
       CONTROL_VOLUME_DOWN, CONTROL_ROOT_DOWN },
-    { PIN_BUTTON_ROOT_UP, false, false, 0, 0, false,
+    { PIN_BUTTON_ROOT_UP, false, false, 0, 0, false, false, 0,
       CONTROL_VOLUME_UP, CONTROL_ROOT_UP },
 #endif
 };
@@ -123,6 +125,8 @@ control_event_t controls_poll(void) {
                 pressed_event[i] = true;
                 button->next_repeat_us = now + REPEAT_DELAY_US;
                 button->action_sent = false;
+                button->long_fired = false;
+                button->pressed_us = now;
             } else {
                 released_event[i] = true;
             }
@@ -242,6 +246,11 @@ control_event_t controls_poll(void) {
     #endif
 
     for (unsigned i = 0; i < BUTTON_COUNT; ++i) {
+        if (i < 2u && buttons[i].stable_pressed && !buttons[i].long_fired &&
+            (int32_t)(now - buttons[i].pressed_us) >= (int32_t)BANK_HOLD_US) {
+            buttons[i].long_fired = true;
+            return i == 0u ? CONTROL_PARAMETER_ENTER : CONTROL_PARAMETER_BACK;
+        }
         if (!buttons[i].stable_pressed) continue;
 #if !PICO_RP2350
         if (i == MODE_BUTTON_INDEX) continue;

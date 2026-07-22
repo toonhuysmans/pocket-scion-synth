@@ -147,6 +147,11 @@ static void apply_control(control_event_t event) {
                                   (uint8_t)(synth.root_note - 24u), 48);
             break;
 #if PICO_RP2350
+        case CONTROL_PARAMETER_ENTER:
+        case CONTROL_PARAMETER_BACK:
+            // Hierarchical state handling is added in the next navigation
+            // layer; consume these events so long-presses are deterministic.
+            break;
         case CONTROL_PARAMETER_PREVIOUS:
             display_parameter = (uint8_t)((display_parameter + DISPLAY_PARAMETER_COUNT - 1u) % DISPLAY_PARAMETER_COUNT);
             show_display_state();
