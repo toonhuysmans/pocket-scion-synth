@@ -2381,6 +2381,8 @@ void service_note_durations(synth_t *synth) {
 
 extern "C" {
 
+static void select_program(synth_t *synth, uint8_t bank, uint8_t program);
+
 void synth_init(synth_t *synth) {
     (void)preset_store_init();
     sam_voice_init();
@@ -2512,6 +2514,20 @@ void synth_set_root_step(synth_t *synth, int direction) {
     for_each_midi_channel(synth, [synth](uint8_t channel) {
         midi_control_change(channel, 22, synth->root_note);
     });
+}
+
+void synth_set_program_step(synth_t *synth, int direction) {
+    int program = static_cast<int>(synth->program_index) + direction;
+    if (program < 0) program = scene_count - 1;
+    if (program >= scene_count) program = 0;
+    select_program(synth, synth->bank_index, static_cast<uint8_t>(program));
+}
+
+void synth_set_bank_step(synth_t *synth, int direction) {
+    int bank = static_cast<int>(synth->bank_index) + direction;
+    if (bank < 0) bank = bank_count - 1;
+    if (bank >= bank_count) bank = 0;
+    select_program(synth, static_cast<uint8_t>(bank), synth->program_index);
 }
 
 uint8_t synth_program_id(const synth_t *synth) {

@@ -35,9 +35,9 @@ static button_t buttons[BUTTON_COUNT] = {
     { PIN_BUTTON_SENS_UP, false, false, 0, 0, false,
       CONTROL_PARAMETER_NEXT, CONTROL_NONE },
     { PIN_BUTTON_MODE, false, false, 0, 0, false,
-      CONTROL_PARAMETER_DECREASE, CONTROL_NONE },
-    { PIN_BUTTON_ROOT_DOWN, false, false, 0, 0, false,
       CONTROL_PARAMETER_INCREASE, CONTROL_NONE },
+    { PIN_BUTTON_ROOT_DOWN, false, false, 0, 0, false,
+      CONTROL_PARAMETER_DECREASE, CONTROL_NONE },
     { PIN_BUTTON_ROOT_UP, false, false, 0, 0, false,
       CONTROL_NONE, CONTROL_NONE },
 #else
@@ -138,7 +138,7 @@ control_event_t controls_poll(void) {
     #else
     // The Display Pack X button is a direct parameter control, not the
     // Pocket SCION's multi-click Mode button.
-    if (pressed_event[MODE_BUTTON_INDEX]) return CONTROL_PARAMETER_DECREASE;
+    if (pressed_event[MODE_BUTTON_INDEX]) return CONTROL_PARAMETER_INCREASE;
     #endif
 
     if (!buttons[MODE_BUTTON_INDEX].stable_pressed && !raw_chord_active &&

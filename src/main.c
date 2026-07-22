@@ -20,7 +20,7 @@ static uint8_t display_parameter;
 
 static void show_display_state(void) {
 #if PICO_RP2350
-    static const char *names[] = {"SENS", "VOLUME", "DURATION", "ROOT"};
+    static const char *names[] = {"SENS", "VOLUME", "DURATION", "ROOT", "BANK", "INST"};
     int value = 0;
     int minimum = 0;
     int maximum = 0;
@@ -28,7 +28,9 @@ static void show_display_state(void) {
         case 0: value = synth.sensitivity_index; maximum = 7; break;
         case 1: value = synth.volume_index; maximum = 11; break;
         case 2: value = synth.duration_index; maximum = 7; break;
-        default: value = synth.root_note; minimum = 24; maximum = 72; break;
+        case 3: value = synth.root_note; minimum = 24; maximum = 72; break;
+        case 4: value = synth.bank_index; maximum = 15; break;
+        default: value = synth.program_index; maximum = 15; break;
     }
     display_show_parameter(names[display_parameter], value, minimum, maximum,
                            synth_program_id(&synth), synth.bank_index, true);
@@ -112,25 +114,29 @@ static void apply_control(control_event_t event) {
             break;
 #if PICO_RP2350
         case CONTROL_PARAMETER_PREVIOUS:
-            display_parameter = (uint8_t)((display_parameter + 3u) % 4u);
+            display_parameter = (uint8_t)((display_parameter + 5u) % 6u);
             show_display_state();
             break;
         case CONTROL_PARAMETER_NEXT:
-            display_parameter = (uint8_t)((display_parameter + 1u) % 4u);
+            display_parameter = (uint8_t)((display_parameter + 1u) % 6u);
             show_display_state();
             break;
         case CONTROL_PARAMETER_DECREASE:
             if (display_parameter == 0u) synth_set_sensitivity_step(&synth, -1);
             else if (display_parameter == 1u) synth_set_volume_step(&synth, -1);
             else if (display_parameter == 2u) synth_set_duration_step(&synth, -1);
-            else synth_set_root_step(&synth, -1);
+            else if (display_parameter == 3u) synth_set_root_step(&synth, -1);
+            else if (display_parameter == 4u) synth_set_bank_step(&synth, -1);
+            else synth_set_program_step(&synth, -1);
             show_display_state();
             break;
         case CONTROL_PARAMETER_INCREASE:
             if (display_parameter == 0u) synth_set_sensitivity_step(&synth, 1);
             else if (display_parameter == 1u) synth_set_volume_step(&synth, 1);
             else if (display_parameter == 2u) synth_set_duration_step(&synth, 1);
-            else synth_set_root_step(&synth, 1);
+            else if (display_parameter == 3u) synth_set_root_step(&synth, 1);
+            else if (display_parameter == 4u) synth_set_bank_step(&synth, 1);
+            else synth_set_program_step(&synth, 1);
             show_display_state();
             break;
 #endif

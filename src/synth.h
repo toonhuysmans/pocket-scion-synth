@@ -120,6 +120,8 @@ void synth_set_sensitivity_step(synth_t *synth, int direction);
 void synth_set_volume_step(synth_t *synth, int direction);
 void synth_set_duration_step(synth_t *synth, int direction);
 void synth_set_root_step(synth_t *synth, int direction);
+void synth_set_program_step(synth_t *synth, int direction);
+void synth_set_bank_step(synth_t *synth, int direction);
 void synth_next_mode(synth_t *synth);
 void synth_next_bank(synth_t *synth);
 void synth_toggle_pitch_bend(synth_t *synth);
