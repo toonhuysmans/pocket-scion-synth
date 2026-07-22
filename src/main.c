@@ -29,8 +29,8 @@ static void show_display_state(void) {
         case 1: value = synth.volume_index; maximum = 11; break;
         case 2: value = synth.duration_index; maximum = 7; break;
         case 3: value = synth.root_note; minimum = 24; maximum = 72; break;
-        case 4: value = synth.bank_index; maximum = 15; break;
-        default: value = synth.program_index; maximum = 15; break;
+        case 4: value = synth.bank_index + 1; minimum = 1; maximum = 16; break;
+        default: value = synth.program_index + 1; minimum = 1; maximum = 16; break;
     }
     display_show_parameter(names[display_parameter], value, minimum, maximum,
                            synth_program_id(&synth), synth.bank_index, true);
