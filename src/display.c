@@ -173,7 +173,8 @@ void display_clear_band(unsigned band) {
 }
 void display_screensaver_step(uint8_t phase, uint8_t motion,
                               uint8_t density, uint8_t sensor) {
-#define LISSAJOUS_POINT_COUNT 48u
+#define LISSAJOUS_POINT_COUNT 256u
+#define LISSAJOUS_POINTS_PER_STEP 32u
     static const int8_t sine[64] = {
         0,12,25,37,49,60,71,81,90,98,106,112,117,122,125,126,
         127,126,125,122,117,112,106,98,90,81,71,60,49,37,25,12,
@@ -181,31 +182,43 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
         -127,-126,-125,-122,-117,-112,-106,-98,-90,-81,-71,-60,-49,-37,-25,-12
     };
     static uint8_t old_x[LISSAJOUS_POINT_COUNT], old_y[LISSAJOUS_POINT_COUNT];
-    static bool valid;
-    if (valid) for (unsigned i = 0; i < LISSAJOUS_POINT_COUNT; ++i) block(old_x[i], old_y[i], 2, 2, 0);
+    static uint8_t drawn[LISSAJOUS_POINT_COUNT];
+    static uint16_t cursor;
+    static uint8_t curve_phase, curve_motion, curve_density, curve_sensor;
+    if (cursor == 0u) {
+        curve_phase = phase; curve_motion = motion;
+        curve_density = density; curve_sensor = sensor;
+    }
     // Higher, deliberately separated ratios create multi-lobed Lissajous
     // figures instead of spending most of the time near an ellipse.
-    unsigned a = 3u + (motion % 6u);
-    unsigned b = 7u + ((density + sensor / 24u) % 7u);
+    unsigned a = 3u + (curve_motion % 6u);
+    unsigned b = 7u + ((curve_density + curve_sensor / 24u) % 7u);
     if (b == a || b == a * 2u) ++b;
-    uint16_t colour = (uint16_t)((((sensor >> 2u) & 31u) << 11u) |
-        (((motion + 24u) & 63u) << 5u) | ((density + 12u) & 31u));
-    if (colour == 0u) colour = 0x07ffu;
-    for (unsigned i = 0; i < LISSAJOUS_POINT_COUNT; ++i) {
-        unsigned p = i * 64u / LISSAJOUS_POINT_COUNT;
+    const uint16_t colour = 0x07ffu;
+    for (unsigned step = 0; step < LISSAJOUS_POINTS_PER_STEP; ++step) {
+        unsigned i = (cursor + step) & 255u;
+        if (drawn[i] != 0u) block(old_x[i], old_y[i], 2, 2, 0);
+        unsigned qx = (((unsigned)curve_phase << 2u) + i * a) & 255u;
+        unsigned qy = (((unsigned)curve_phase << 2u) + i * b + 52u + ((unsigned)curve_motion << 2u)) & 255u;
+        unsigned bx = qx >> 2u, by = qy >> 2u;
+        unsigned fx = qx & 3u, fy = qy & 3u;
+        int sx = (sine[bx] * (int)(4u - fx) + sine[(bx + 1u) & 63u] * (int)fx) / 4;
+        int sy = (sine[by] * (int)(4u - fy) + sine[(by + 1u) & 63u] * (int)fy) / 4;
         // The ratios multiply the curve parameter, not merely time. Applying
         // them only to phase translates an ellipse; applying them to p creates
         // the intended multi-lobed Lissajous geometry.
-        int x = 118 + sine[(phase + p * a) & 63u] * (88 + sensor / 8) / 127;
-        int y = 66 + sine[(phase + p * b + 13u + motion) & 63u] * 54 / 127;
+        int x = 118 + sx * (88 + curve_sensor / 8) / 127;
+        int y = 66 + sy * 54 / 127;
         if (x < 1) x = 1;
         if (x > 236) x = 236;
         if (y < 1) y = 1;
         if (y > 131) y = 131;
         old_x[i] = (uint8_t)x; old_y[i] = (uint8_t)y;
+        drawn[i] = 1u;
         block(old_x[i], old_y[i], 2, 2, colour);
     }
-    valid = true;
+    cursor = (uint16_t)((cursor + LISSAJOUS_POINTS_PER_STEP) & 255u);
+#undef LISSAJOUS_POINTS_PER_STEP
 #undef LISSAJOUS_POINT_COUNT
 }
 #else
