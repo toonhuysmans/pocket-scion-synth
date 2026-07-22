@@ -173,15 +173,16 @@ void display_clear_band(unsigned band) {
 }
 void display_screensaver_step(uint8_t phase, uint8_t motion,
                               uint8_t density, uint8_t sensor) {
+#define LISSAJOUS_POINT_COUNT 32u
     static const int8_t sine[64] = {
         0,12,25,37,49,60,71,81,90,98,106,112,117,122,125,126,
         127,126,125,122,117,112,106,98,90,81,71,60,49,37,25,12,
         0,-12,-25,-37,-49,-60,-71,-81,-90,-98,-106,-112,-117,-122,-125,-126,
         -127,-126,-125,-122,-117,-112,-106,-98,-90,-81,-71,-60,-49,-37,-25,-12
     };
-    static uint8_t old_x[20], old_y[20];
+    static uint8_t old_x[LISSAJOUS_POINT_COUNT], old_y[LISSAJOUS_POINT_COUNT];
     static bool valid;
-    if (valid) for (unsigned i = 0; i < 20u; ++i) block(old_x[i], old_y[i], 3, 3, 0);
+    if (valid) for (unsigned i = 0; i < LISSAJOUS_POINT_COUNT; ++i) block(old_x[i], old_y[i], 2, 2, 0);
     // Higher, deliberately separated ratios create multi-lobed Lissajous
     // figures instead of spending most of the time near an ellipse.
     unsigned a = 3u + (motion % 6u);
@@ -190,8 +191,8 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
     uint16_t colour = (uint16_t)((((sensor >> 2u) & 31u) << 11u) |
         (((motion + 24u) & 63u) << 5u) | ((density + 12u) & 31u));
     if (colour == 0u) colour = 0x07ffu;
-    for (unsigned i = 0; i < 20u; ++i) {
-        unsigned p = i * 64u / 20u;
+    for (unsigned i = 0; i < LISSAJOUS_POINT_COUNT; ++i) {
+        unsigned p = i * 64u / LISSAJOUS_POINT_COUNT;
         // The ratios multiply the curve parameter, not merely time. Applying
         // them only to phase translates an ellipse; applying them to p creates
         // the intended multi-lobed Lissajous geometry.
@@ -202,9 +203,10 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
         if (y < 1) y = 1;
         if (y > 131) y = 131;
         old_x[i] = (uint8_t)x; old_y[i] = (uint8_t)y;
-        block(old_x[i], old_y[i], 3, 3, colour);
+        block(old_x[i], old_y[i], 2, 2, colour);
     }
     valid = true;
+#undef LISSAJOUS_POINT_COUNT
 }
 #else
 void display_init(void) {}
