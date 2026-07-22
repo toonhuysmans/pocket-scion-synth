@@ -23,6 +23,7 @@ add_executable(pocket_scion_synth
     src/main.c
     src/audio_i2s.c
     src/controls.c
+    src/display.c
     src/editor_protocol.c
     src/midi_uart.c
     src/preset_store.c
@@ -81,6 +82,7 @@ target_link_libraries(pocket_scion_synth PRIVATE
     hardware_gpio
     hardware_irq
     hardware_pio
+    hardware_spi
     hardware_flash
     hardware_uart
     pico_multicore

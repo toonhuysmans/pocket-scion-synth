@@ -2,6 +2,7 @@
 
 #include "audio_i2s.h"
 #include "controls.h"
+#include "display.h"
 #include "editor_protocol.h"
 #include "hardware/clocks.h"
 #include "midi_uart.h"
@@ -13,6 +14,26 @@
 
 static synth_t synth;
 static bool usb_midi_was_mounted;
+#if PICO_RP2350
+static uint8_t display_parameter;
+#endif
+
+static void show_display_state(void) {
+#if PICO_RP2350
+    static const char *names[] = {"SENS", "VOLUME", "DURATION", "ROOT"};
+    int value = 0;
+    int minimum = 0;
+    int maximum = 0;
+    switch (display_parameter) {
+        case 0: value = synth.sensitivity_index; maximum = 7; break;
+        case 1: value = synth.volume_index; maximum = 11; break;
+        case 2: value = synth.duration_index; maximum = 7; break;
+        default: value = synth.root_note; minimum = 24; maximum = 72; break;
+    }
+    display_show_parameter(names[display_parameter], value, minimum, maximum,
+                           synth_program_id(&synth), synth.bank_index, true);
+#endif
+}
 
 static void apply_midi_chord_note(uint8_t note, bool pressed) {
     synth_midi_chord_note(&synth, note, pressed);
@@ -30,6 +51,7 @@ static void show_program_state(void) {
         status_rgb_show_program(synth_program_id(&synth),
                                 synth.pitch_bend_enabled != 0u);
     }
+    show_display_state();
 }
 
 static void apply_control(control_event_t event) {
@@ -88,6 +110,30 @@ static void apply_control(control_event_t event) {
             status_rgb_show_level(STATUS_RGB_PURPLE,
                                   (uint8_t)(synth.root_note - 24u), 48);
             break;
+#if PICO_RP2350
+        case CONTROL_PARAMETER_PREVIOUS:
+            display_parameter = (uint8_t)((display_parameter + 3u) % 4u);
+            show_display_state();
+            break;
+        case CONTROL_PARAMETER_NEXT:
+            display_parameter = (uint8_t)((display_parameter + 1u) % 4u);
+            show_display_state();
+            break;
+        case CONTROL_PARAMETER_DECREASE:
+            if (display_parameter == 0u) synth_set_sensitivity_step(&synth, -1);
+            else if (display_parameter == 1u) synth_set_volume_step(&synth, -1);
+            else if (display_parameter == 2u) synth_set_duration_step(&synth, -1);
+            else synth_set_root_step(&synth, -1);
+            show_display_state();
+            break;
+        case CONTROL_PARAMETER_INCREASE:
+            if (display_parameter == 0u) synth_set_sensitivity_step(&synth, 1);
+            else if (display_parameter == 1u) synth_set_volume_step(&synth, 1);
+            else if (display_parameter == 2u) synth_set_duration_step(&synth, 1);
+            else synth_set_root_step(&synth, 1);
+            show_display_state();
+            break;
+#endif
         default:
             break;
     }
@@ -112,7 +158,9 @@ int main(void) {
     audio_i2s_init();
     raw_capture_init();
     status_rgb_init();
+    display_init();
     show_program_state();
+    show_display_state();
     synth_startup_chord(&synth);
 
     for (;;) {

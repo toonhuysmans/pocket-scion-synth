@@ -29,6 +29,18 @@ typedef struct {
 } button_t;
 
 static button_t buttons[BUTTON_COUNT] = {
+#if PICO_RP2350
+    { PIN_BUTTON_SENS_DOWN, false, false, 0, 0, false,
+      CONTROL_PARAMETER_PREVIOUS, CONTROL_NONE },
+    { PIN_BUTTON_SENS_UP, false, false, 0, 0, false,
+      CONTROL_PARAMETER_NEXT, CONTROL_NONE },
+    { PIN_BUTTON_MODE, false, false, 0, 0, false,
+      CONTROL_PARAMETER_DECREASE, CONTROL_NONE },
+    { PIN_BUTTON_ROOT_DOWN, false, false, 0, 0, false,
+      CONTROL_PARAMETER_INCREASE, CONTROL_NONE },
+    { PIN_BUTTON_ROOT_UP, false, false, 0, 0, false,
+      CONTROL_NONE, CONTROL_NONE },
+#else
     { PIN_BUTTON_SENS_DOWN, false, false, 0, 0, false,
       CONTROL_SENSITIVITY_DOWN, CONTROL_DURATION_DOWN },
     { PIN_BUTTON_SENS_UP, false, false, 0, 0, false,
@@ -39,6 +51,7 @@ static button_t buttons[BUTTON_COUNT] = {
       CONTROL_VOLUME_DOWN, CONTROL_ROOT_DOWN },
     { PIN_BUTTON_ROOT_UP, false, false, 0, 0, false,
       CONTROL_VOLUME_UP, CONTROL_ROOT_UP },
+#endif
 };
 
 static uint32_t next_scan_us;

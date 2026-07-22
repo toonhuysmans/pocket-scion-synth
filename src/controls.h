@@ -18,6 +18,12 @@ typedef enum {
     CONTROL_DURATION_UP,
     CONTROL_ROOT_DOWN,
     CONTROL_ROOT_UP,
+#if PICO_RP2350
+    CONTROL_PARAMETER_PREVIOUS,
+    CONTROL_PARAMETER_NEXT,
+    CONTROL_PARAMETER_DECREASE,
+    CONTROL_PARAMETER_INCREASE,
+#endif
 } control_event_t;
 
 void controls_init(void);
