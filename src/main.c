@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdio.h>
 
 #include "audio_i2s.h"
 #include "controls.h"
@@ -16,6 +17,9 @@ static synth_t synth;
 static bool usb_midi_was_mounted;
 #if PICO_RP2350
 static uint8_t display_parameter;
+#define DISPLAY_GLOBAL_COUNT 9u
+#define DISPLAY_VOICE_PARAMETER_COUNT SYNTH_EDITOR_PATCH_SHARED_COUNT
+#define DISPLAY_PARAMETER_COUNT (DISPLAY_GLOBAL_COUNT + 3u * DISPLAY_VOICE_PARAMETER_COUNT)
 #endif
 
 static void show_display_state(void) {
@@ -34,7 +38,24 @@ static void show_display_state(void) {
         case 5: value = synth.program_index + 1; minimum = 1; maximum = 16; break;
         case 6: value = synth.pitch_bend_enabled; maximum = 1; break;
         case 7: value = synth.midi_multichannel; maximum = 1; break;
-        default: value = synth.raw_mode; maximum = 1; break;
+        case 8: value = synth.raw_mode; maximum = 1; break;
+        default: {
+            uint16_t offset = (uint16_t)(display_parameter - DISPLAY_GLOBAL_COUNT);
+            uint8_t lane = (uint8_t)(offset / DISPLAY_VOICE_PARAMETER_COUNT);
+            uint8_t parameter = (uint8_t)(offset % DISPLAY_VOICE_PARAMETER_COUNT);
+            value = 0; maximum = 127;
+            uint16_t editor_value = 0;
+            (void)synth_editor_get(&synth, SYNTH_EDITOR_SCOPE_PATCH,
+                                   synth_program_id(&synth), lane, parameter,
+                                   &editor_value);
+            value = editor_value;
+            static const char *lanes[] = {"BASS", "PAD", "LEAD"};
+            char label[16];
+            snprintf(label, sizeof(label), "%s P%u", lanes[lane], parameter);
+            display_show_parameter(label, value, 0, 127,
+                                   synth.program_index, synth.bank_index, true);
+            return;
+        }
     }
     display_show_parameter(names[display_parameter], value, minimum, maximum,
                            synth.program_index, synth.bank_index, true);
@@ -118,11 +139,11 @@ static void apply_control(control_event_t event) {
             break;
 #if PICO_RP2350
         case CONTROL_PARAMETER_PREVIOUS:
-            display_parameter = (uint8_t)((display_parameter + 8u) % 9u);
+            display_parameter = (uint8_t)((display_parameter + DISPLAY_PARAMETER_COUNT - 1u) % DISPLAY_PARAMETER_COUNT);
             show_display_state();
             break;
         case CONTROL_PARAMETER_NEXT:
-            display_parameter = (uint8_t)((display_parameter + 1u) % 9u);
+            display_parameter = (uint8_t)((display_parameter + 1u) % DISPLAY_PARAMETER_COUNT);
             show_display_state();
             break;
         case CONTROL_PARAMETER_DECREASE:
@@ -135,6 +156,14 @@ static void apply_control(control_event_t event) {
             else if (display_parameter == 6u) synth_toggle_pitch_bend(&synth);
             else if (display_parameter == 7u) synth_toggle_midi_mode(&synth);
             else if (display_parameter == 8u) synth_toggle_raw_mode(&synth);
+            else {
+                uint16_t offset = (uint16_t)(display_parameter - DISPLAY_GLOBAL_COUNT);
+                uint8_t lane = (uint8_t)(offset / DISPLAY_VOICE_PARAMETER_COUNT);
+                uint8_t parameter = (uint8_t)(offset % DISPLAY_VOICE_PARAMETER_COUNT);
+                uint16_t current = 0;
+                if (synth_editor_get(&synth, SYNTH_EDITOR_SCOPE_PATCH, synth_program_id(&synth), lane, parameter, &current) && current > 0u)
+                    (void)synth_editor_set(&synth, SYNTH_EDITOR_SCOPE_PATCH, synth_program_id(&synth), lane, parameter, (uint16_t)(current - 1u));
+            }
             show_display_state();
             break;
         case CONTROL_PARAMETER_INCREASE:
@@ -147,6 +176,14 @@ static void apply_control(control_event_t event) {
             else if (display_parameter == 6u) synth_toggle_pitch_bend(&synth);
             else if (display_parameter == 7u) synth_toggle_midi_mode(&synth);
             else if (display_parameter == 8u) synth_toggle_raw_mode(&synth);
+            else {
+                uint16_t offset = (uint16_t)(display_parameter - DISPLAY_GLOBAL_COUNT);
+                uint8_t lane = (uint8_t)(offset / DISPLAY_VOICE_PARAMETER_COUNT);
+                uint8_t parameter = (uint8_t)(offset % DISPLAY_VOICE_PARAMETER_COUNT);
+                uint16_t current = 0;
+                if (synth_editor_get(&synth, SYNTH_EDITOR_SCOPE_PATCH, synth_program_id(&synth), lane, parameter, &current) && current < 127u)
+                    (void)synth_editor_set(&synth, SYNTH_EDITOR_SCOPE_PATCH, synth_program_id(&synth), lane, parameter, (uint16_t)(current + 1u));
+            }
             show_display_state();
             break;
 #endif
