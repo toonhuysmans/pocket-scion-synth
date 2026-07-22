@@ -17,6 +17,7 @@
 #define LCD_BL 20u
 #define LCD_X_OFFSET 40u
 #define LCD_Y_OFFSET 53u
+static unsigned display_generation;
 
 static void command(uint8_t value) {
     gpio_put(LCD_DC, 0); gpio_put(LCD_CS, 0);
@@ -96,29 +97,49 @@ void display_show_parameter(const char *name, int value, int minimum, int maximu
     static int old_value, old_minimum, old_maximum;
     static bool old_sensor;
     static char old_name[20];
+    static unsigned old_generation;
     char shown_name[20];
     snprintf(shown_name, sizeof(shown_name), "%.19s", name);
-    if (!shown || old_program != program || old_bank != bank) {
+    if (!shown || old_generation != display_generation || old_program != program || old_bank != bank) {
         snprintf(line, sizeof(line), "BANK %u  INST %u", bank + 1u, program + 1u);
         text(line, 4, 6, 0xffff);
     }
-    if (!shown || strcmp(old_name, shown_name) != 0) { text("                    ", 4, 32, 0); text(shown_name, 4, 32, 0xffe0); }
-    if (!shown || old_value != value) {
+    if (!shown || old_generation != display_generation || strcmp(old_name, shown_name) != 0) { text("                    ", 4, 32, 0); text(shown_name, 4, 32, 0xffe0); }
+    if (!shown || old_generation != display_generation || old_value != value) {
         snprintf(line, sizeof(line), "%d", value); text("      ", 4, 52, 0); text(line, 4, 52, 0xffff);
     }
-    if (!shown || old_minimum != minimum || old_maximum != maximum) {
+    if (!shown || old_generation != display_generation || old_minimum != minimum || old_maximum != maximum) {
         snprintf(line, sizeof(line), "%d..%d", minimum, maximum); text("          ", 4, 72, 0); text(line, 4, 72, 0x7bef);
     }
     if (!shown || old_sensor != simulated_sensor)
         text(simulated_sensor ? "SENSOR SIM" : "SENSOR LIVE", 4, 108, 0x07ff);
     shown = true; old_program = program; old_bank = bank; old_value = value;
     old_minimum = minimum; old_maximum = maximum; old_sensor = simulated_sensor;
+    old_generation = display_generation;
     strncpy(old_name, shown_name, sizeof(old_name) - 1u); old_name[sizeof(old_name) - 1u] = '\0';
+}
+void display_show_menu_node(const char *name, unsigned index, unsigned count,
+                            unsigned program, unsigned bank, bool simulated_sensor) {
+    char line[40];
+    char shown_name[20];
+    snprintf(shown_name, sizeof(shown_name), "%.19s", name);
+    snprintf(line, sizeof(line), "BANK %u  INST %u", bank + 1u, program + 1u);
+    text(line, 4, 6, 0xffff);
+    text("                    ", 4, 32, 0); text(shown_name, 4, 32, 0xffe0);
+    text("                    ", 4, 52, 0);
+    snprintf(line, sizeof(line), "%u OF %u", index, count); text(line, 4, 52, 0x07ff);
+    text("                    ", 4, 72, 0); text("HOLD A: ENTER", 4, 72, 0x7bef);
+    text(simulated_sensor ? "SENSOR SIM" : "SENSOR LIVE", 4, 108, 0x07ff);
+    ++display_generation;
 }
 #else
 void display_init(void) {}
 void display_show_parameter(const char *name, int value, int minimum, int maximum,
                             unsigned program, unsigned bank, bool simulated_sensor) {
     (void)name; (void)value; (void)minimum; (void)maximum; (void)program; (void)bank; (void)simulated_sensor;
+}
+void display_show_menu_node(const char *name, unsigned index, unsigned count,
+                            unsigned program, unsigned bank, bool simulated_sensor) {
+    (void)name; (void)index; (void)count; (void)program; (void)bank; (void)simulated_sensor;
 }
 #endif

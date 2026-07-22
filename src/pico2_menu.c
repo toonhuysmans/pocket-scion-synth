@@ -173,9 +173,9 @@ static void current_meta(synth_t *s,uint8_t *scope,uint8_t *lane,uint8_t *param,
 
 void pico2_menu_init(void){menu=(menu_state_t){0};}
 void pico2_menu_show(synth_t *s){
-    if(menu.level==LEVEL_ROOT){display_show_parameter(root_names[menu.root],menu.root+1,1,ROOT_COUNT,s->program_index,s->bank_index,true);return;}
-    if(menu.root==ROOT_PATCH&&menu.level==LEVEL_LANE){display_show_parameter(lane_names[menu.lane],menu.lane+1,1,3,s->program_index,s->bank_index,true);return;}
-    if(menu.level==LEVEL_SECTION){unsigned total=section_total(menu.root,menu.lane);display_show_parameter(section_title(),menu.section+1,1,(int)total,s->program_index,s->bank_index,true);return;}
+    if(menu.level==LEVEL_ROOT){display_show_menu_node(root_names[menu.root],menu.root+1,ROOT_COUNT,s->program_index,s->bank_index,true);return;}
+    if(menu.root==ROOT_PATCH&&menu.level==LEVEL_LANE){display_show_menu_node(lane_names[menu.lane],menu.lane+1,3,s->program_index,s->bank_index,true);return;}
+    if(menu.level==LEVEL_SECTION){unsigned total=section_total(menu.root,menu.lane);display_show_menu_node(section_title(),menu.section+1,total,s->program_index,s->bank_index,true);return;}
     uint8_t scope,lane,param;uint16_t target,lo,hi,value=0;bool editable;const char *name;char scratch[28];
     current_meta(s,&scope,&lane,&param,&target,&name,scratch,sizeof scratch,&lo,&hi,&editable);
     if(menu.root==ROOT_ACTIONS)value=menu.action_result<0?0u:(uint16_t)menu.action_result;else if(menu.root==ROOT_PROGRAM)value=menu.leaf==0u?s->bank_index+1u:s->program_index+1u;else (void)synth_editor_get(s,scope,target,lane,param,&value);
