@@ -95,12 +95,14 @@ void display_show_parameter(const char *name, int value, int minimum, int maximu
     static unsigned old_program, old_bank;
     static int old_value, old_minimum, old_maximum;
     static bool old_sensor;
-    static char old_name[16];
+    static char old_name[20];
+    char shown_name[20];
+    snprintf(shown_name, sizeof(shown_name), "%.19s", name);
     if (!shown || old_program != program || old_bank != bank) {
         snprintf(line, sizeof(line), "BANK %u  INST %u", bank + 1u, program + 1u);
         text(line, 4, 6, 0xffff);
     }
-    if (!shown || strcmp(old_name, name) != 0) { text("                ", 4, 32, 0); text(name, 4, 32, 0xffe0); }
+    if (!shown || strcmp(old_name, shown_name) != 0) { text("                    ", 4, 32, 0); text(shown_name, 4, 32, 0xffe0); }
     if (!shown || old_value != value) {
         snprintf(line, sizeof(line), "%d", value); text("      ", 4, 52, 0); text(line, 4, 52, 0xffff);
     }
@@ -111,7 +113,7 @@ void display_show_parameter(const char *name, int value, int minimum, int maximu
         text(simulated_sensor ? "SENSOR SIM" : "SENSOR LIVE", 4, 108, 0x07ff);
     shown = true; old_program = program; old_bank = bank; old_value = value;
     old_minimum = minimum; old_maximum = maximum; old_sensor = simulated_sensor;
-    strncpy(old_name, name, sizeof(old_name) - 1u); old_name[sizeof(old_name) - 1u] = '\0';
+    strncpy(old_name, shown_name, sizeof(old_name) - 1u); old_name[sizeof(old_name) - 1u] = '\0';
 }
 #else
 void display_init(void) {}

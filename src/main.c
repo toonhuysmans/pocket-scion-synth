@@ -7,6 +7,7 @@
 #include "editor_protocol.h"
 #include "hardware/clocks.h"
 #include "midi_uart.h"
+#include "pico2_menu.h"
 #include "pico/stdlib.h"
 #include "raw_capture.h"
 #include "sensor.h"
@@ -46,6 +47,8 @@ static const char *const late_parameter_names[] = {"PERC 1 SOUND","PERC 1 ROLE",
 
 static void show_display_state(void) {
 #if PICO_RP2350
+    pico2_menu_show(&synth);
+    return;
     if (tree_level == 1u) {
         static const char *const lanes[] = {"BASS", "PAD", "LEAD"};
         display_show_parameter(lanes[tree_lane], tree_lane + 1, 1, 3,
@@ -118,6 +121,9 @@ static void show_program_state(void) {
 }
 
 static void apply_control(control_event_t event) {
+#if PICO_RP2350
+    if (pico2_menu_handle(&synth, event)) return;
+#endif
     switch (event) {
         case CONTROL_SENSITIVITY_DOWN:
             synth_set_sensitivity_step(&synth, -1);
@@ -266,6 +272,9 @@ int main(void) {
     set_sys_clock_khz(153600u, true);
 #endif
     synth_init(&synth);
+#if PICO_RP2350
+    pico2_menu_init();
+#endif
     controls_init();
     midi_uart_init();
     midi_set_note_input_handler(apply_midi_chord_note);

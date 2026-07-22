@@ -21,6 +21,7 @@ pico_sdk_init()
 
 add_executable(pocket_scion_synth
     src/main.c
+    src/pico2_menu.c
     src/audio_i2s.c
     src/controls.c
     src/display.c
