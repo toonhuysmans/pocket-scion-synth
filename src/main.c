@@ -16,7 +16,8 @@
 static synth_t synth;
 static bool usb_midi_was_mounted;
 #if PICO_RP2350
-static uint8_t display_parameter;
+static uint16_t display_parameter;
+static bool voice_edit_mode;
 #define DISPLAY_GLOBAL_COUNT 9u
 #define DISPLAY_VOICE_PARAMETER_COUNT SYNTH_EDITOR_PATCH_SHARED_COUNT
 #define DISPLAY_PARAMETER_COUNT (DISPLAY_GLOBAL_COUNT + 3u * DISPLAY_VOICE_PARAMETER_COUNT)
@@ -148,16 +149,31 @@ static void apply_control(control_event_t event) {
             break;
 #if PICO_RP2350
         case CONTROL_PARAMETER_ENTER:
+            voice_edit_mode = true;
+            if (display_parameter < DISPLAY_GLOBAL_COUNT) display_parameter = DISPLAY_GLOBAL_COUNT;
+            show_display_state();
+            break;
         case CONTROL_PARAMETER_BACK:
-            // Hierarchical state handling is added in the next navigation
-            // layer; consume these events so long-presses are deterministic.
+            voice_edit_mode = false;
+            display_parameter = 0u;
+            show_display_state();
             break;
         case CONTROL_PARAMETER_PREVIOUS:
-            display_parameter = (uint8_t)((display_parameter + DISPLAY_PARAMETER_COUNT - 1u) % DISPLAY_PARAMETER_COUNT);
+            if (voice_edit_mode) {
+                if (display_parameter <= DISPLAY_GLOBAL_COUNT) display_parameter = DISPLAY_PARAMETER_COUNT - 1u;
+                else display_parameter--;
+            } else {
+                display_parameter = (uint8_t)((display_parameter + DISPLAY_GLOBAL_COUNT - 1u) % DISPLAY_GLOBAL_COUNT);
+            }
             show_display_state();
             break;
         case CONTROL_PARAMETER_NEXT:
-            display_parameter = (uint8_t)((display_parameter + 1u) % DISPLAY_PARAMETER_COUNT);
+            if (voice_edit_mode) {
+                display_parameter++;
+                if (display_parameter >= DISPLAY_PARAMETER_COUNT) display_parameter = DISPLAY_GLOBAL_COUNT;
+            } else {
+                display_parameter = (uint8_t)((display_parameter + 1u) % DISPLAY_GLOBAL_COUNT);
+            }
             show_display_state();
             break;
         case CONTROL_PARAMETER_DECREASE:
