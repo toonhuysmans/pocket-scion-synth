@@ -191,8 +191,8 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
     }
     // Higher, deliberately separated ratios create multi-lobed Lissajous
     // figures instead of spending most of the time near an ellipse.
-    unsigned a = 3u + (curve_motion % 6u);
-    unsigned b = 7u + ((curve_density + curve_sensor / 24u) % 7u);
+    unsigned a = 2u + (curve_motion % 4u);
+    unsigned b = 3u + ((curve_density + curve_sensor / 24u) % 5u);
     if (b == a || b == a * 2u) ++b;
     const uint16_t colour = 0x07ffu;
     for (unsigned step = 0; step < LISSAJOUS_POINTS_PER_STEP; ++step) {
