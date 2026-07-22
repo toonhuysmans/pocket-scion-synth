@@ -81,6 +81,12 @@ void display_init(void) {
     sleep_ms(20); command(0x01); sleep_ms(120); command(0x11); sleep_ms(120);
     uint8_t madctl = 0x60; command(0x36); data(&madctl, 1);
     uint8_t colmod = 0x55; command(0x3a); data(&colmod, 1); command(0x21); command(0x29);
+    // Clear once at boot; subsequent status changes update only their text
+    // cells so the audio scheduler is not blocked by a full-frame transfer.
+    window(0, 0, 240, 135); uint8_t black[2] = {0, 0};
+    gpio_put(LCD_DC, 1); gpio_put(LCD_CS, 0);
+    for (unsigned i = 0; i < 240u * 135u; ++i) spi_write_blocking(LCD_SPI, black, 2);
+    gpio_put(LCD_CS, 1);
 }
 void display_show_parameter(const char *name, int value, int minimum, int maximum,
                             unsigned program, unsigned bank, bool simulated_sensor) {

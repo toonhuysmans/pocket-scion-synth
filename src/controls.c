@@ -129,11 +129,17 @@ control_event_t controls_poll(void) {
         }
     }
 
+    #if !PICO_RP2350
     if (pressed_event[MODE_BUTTON_INDEX]) {
         mode_chord_used = false;
         mode_long_fired = false;
         mode_pressed_us = now;
     }
+    #else
+    // The Display Pack X button is a direct parameter control, not the
+    // Pocket SCION's multi-click Mode button.
+    if (pressed_event[MODE_BUTTON_INDEX]) return CONTROL_PARAMETER_DECREASE;
+    #endif
 
     if (!buttons[MODE_BUTTON_INDEX].stable_pressed && !raw_chord_active &&
         buttons[SENS_DOWN_INDEX].stable_pressed &&
@@ -183,7 +189,10 @@ control_event_t controls_poll(void) {
         if (i == MODE_BUTTON_INDEX || !pressed_event[i]) continue;
         if ((raw_chord_active && i <= SENS_UP_INDEX) ||
             (midi_chord_active && i >= VOLUME_DOWN_INDEX)) continue;
-        bool modified = buttons[MODE_BUTTON_INDEX].stable_pressed;
+        bool modified = false;
+#if !PICO_RP2350
+        modified = buttons[MODE_BUTTON_INDEX].stable_pressed;
+#endif
         if (!modified && deferred_pair_button(i)) continue;
         if (modified) {
             mode_chord_used = true;
@@ -194,6 +203,7 @@ control_event_t controls_poll(void) {
         return event_for_button(i, modified);
     }
 
+    #if !PICO_RP2350
     if (released_event[MODE_BUTTON_INDEX] && !mode_chord_used) {
         if (mode_click_pending &&
             (int32_t)(now - mode_click_deadline_us) > 0) {
@@ -208,6 +218,7 @@ control_event_t controls_poll(void) {
         mode_click_pending = true;
         mode_click_deadline_us = now + DOUBLE_CLICK_US;
     }
+    #endif
 
     for (unsigned i = 0; i < BUTTON_COUNT; ++i) {
         if (!released_event[i] || !deferred_pair_button(i) ||
@@ -218,6 +229,7 @@ control_event_t controls_poll(void) {
         return buttons[i].direct_event;
     }
 
+    #if !PICO_RP2350
     if (buttons[MODE_BUTTON_INDEX].stable_pressed && !mode_chord_used &&
         !mode_long_fired &&
         (int32_t)(now - mode_pressed_us) >= (int32_t)BANK_HOLD_US) {
@@ -227,6 +239,7 @@ control_event_t controls_poll(void) {
         mode_click_count = 0u;
         return CONTROL_PITCH_BEND_TOGGLE;
     }
+    #endif
 
     for (unsigned i = 0; i < BUTTON_COUNT; ++i) {
         if (i == MODE_BUTTON_INDEX || !buttons[i].stable_pressed) continue;
@@ -234,7 +247,10 @@ control_event_t controls_poll(void) {
             (midi_chord_active && i >= VOLUME_DOWN_INDEX)) continue;
         if ((int32_t)(now - buttons[i].next_repeat_us) >= 0) {
             buttons[i].next_repeat_us = now + REPEAT_PERIOD_US;
-            bool modified = buttons[MODE_BUTTON_INDEX].stable_pressed;
+            bool modified = false;
+#if !PICO_RP2350
+            modified = buttons[MODE_BUTTON_INDEX].stable_pressed;
+#endif
             if (modified) {
                 mode_chord_used = true;
                 mode_click_pending = false;
@@ -245,6 +261,7 @@ control_event_t controls_poll(void) {
         }
     }
 
+    #if !PICO_RP2350
     if (mode_click_pending && !buttons[MODE_BUTTON_INDEX].stable_pressed &&
         (int32_t)(now - mode_click_deadline_us) >= 0) {
         mode_click_pending = false;
@@ -252,6 +269,7 @@ control_event_t controls_poll(void) {
         mode_click_count = 0u;
         return count == 2u ? CONTROL_BANK_NEXT : CONTROL_MODE;
     }
+    #endif
 
     return CONTROL_NONE;
 }
