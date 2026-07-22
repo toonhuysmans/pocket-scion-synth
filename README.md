@@ -1,5 +1,9 @@
 # Pocket SCION Synth
 
+This `pico2-sam` development branch targets a Pico 2/RP2350 hardware port. See
+[`docs/pico2.md`](docs/pico2.md) before flashing: its UF2 is not compatible with
+the RP2040 fitted to an unmodified Pocket SCION.
+
 An alternative, clean-room firmware for the Instruō Pocket SCION that turns
 the RP2040 hardware into a real-time, sensor-driven multitimbral synthesizer.
 Instead of selecting prerecorded samples, it generates every sound live with

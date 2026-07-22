@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 
 set(PICO_BOARD_HEADER_DIRS ${CMAKE_CURRENT_LIST_DIR}/boards)
-set(PICO_BOARD pocket_scion CACHE STRING "Pocket SCION board")
+set(PICO_BOARD pocket_scion_pico2 CACHE STRING "Pocket SCION target board")
 
 if(NOT DEFINED PICO_SDK_PATH)
     if(DEFINED ENV{PICO_SDK_PATH})
@@ -39,9 +39,17 @@ add_executable(pocket_scion_synth
     vendor/sam/sam.c
 )
 
-pico_set_program_name(pocket_scion_synth "Pocket SCION PRA32-U")
+if(PICO_PLATFORM MATCHES "^rp2350")
+    pico_set_program_name(pocket_scion_synth "Pocket SCION Pico 2")
+    pico_set_program_description(pocket_scion_synth "RP2350 three-lane PRA32-U synthesizer with generative SAM voice")
+    set_target_properties(pocket_scion_synth PROPERTIES
+        OUTPUT_NAME pocket_scion_synth_pico2
+    )
+else()
+    pico_set_program_name(pocket_scion_synth "Pocket SCION PRA32-U")
+    pico_set_program_description(pocket_scion_synth "Three-lane PRA32-U synthesizer with generative SAM voice")
+endif()
 pico_set_program_version(pocket_scion_synth "2.7.0")
-pico_set_program_description(pocket_scion_synth "Three-lane PRA32-U synthesizer with generative SAM voice")
 pico_set_program_url(pocket_scion_synth "https://github.com/toonhuysmans/pocket-scion-synth")
 
 pico_generate_pio_header(pocket_scion_synth

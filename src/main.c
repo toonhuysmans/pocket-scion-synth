@@ -94,7 +94,13 @@ static void apply_control(control_event_t event) {
 }
 
 int main(void) {
+#if PICO_RP2350
+    // 150 MHz is the rated Pico 2 clock. It also divides exactly to the
+    // 3.072 MHz I2S bit clock through PIO's 16.8 fixed-point divider.
+    set_sys_clock_khz(150000u, true);
+#else
     set_sys_clock_khz(153600u, true);
+#endif
     synth_init(&synth);
     controls_init();
     midi_uart_init();
