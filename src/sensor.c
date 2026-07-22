@@ -29,6 +29,7 @@ static uint32_t simulated_next_window_us;
 static uint32_t simulated_phase;
 #endif
 
+#if !PICO_RP2350
 static void sensor_gpio_irq(uint gpio, uint32_t events) {
     (void)gpio;
     (void)events;
@@ -42,6 +43,7 @@ static void sensor_gpio_irq(uint gpio, uint32_t events) {
     __compiler_memory_barrier();
     edge_head = next;
 }
+#endif
 
 void sensor_init(void) {
     memset(intervals, 0, sizeof(intervals));
