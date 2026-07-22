@@ -20,6 +20,9 @@ static uint16_t display_parameter;
 static bool voice_edit_mode;
 static uint8_t tree_level;
 static uint8_t tree_lane;
+static uint8_t tree_section;
+static const char *const tree_sections[] = {"OSCILLATOR", "FILTER", "ENVELOPES", "LFO", "VOICE", "EXPRESSION", "EFFECTS", "SEQUENCE", "ARTICULATION", "MOTION", "SPEECH"};
+#define TREE_SECTION_COUNT 11u
 #define DISPLAY_GLOBAL_COUNT 9u
 #define DISPLAY_VOICE_PARAMETER_COUNT SYNTH_EDITOR_PATCH_SHARED_COUNT
 #define DISPLAY_PARAMETER_COUNT (DISPLAY_GLOBAL_COUNT + 3u * DISPLAY_VOICE_PARAMETER_COUNT)
@@ -38,6 +41,11 @@ static void show_display_state(void) {
     if (tree_level == 1u) {
         static const char *const lanes[] = {"BASS", "PAD", "LEAD"};
         display_show_parameter(lanes[tree_lane], tree_lane + 1, 1, 3,
+                               synth.program_index, synth.bank_index, true);
+        return;
+    }
+    if (tree_level == 2u) {
+        display_show_parameter(tree_sections[tree_section], tree_section + 1, 1, TREE_SECTION_COUNT,
                                synth.program_index, synth.bank_index, true);
         return;
     }
@@ -159,17 +167,19 @@ static void apply_control(control_event_t event) {
         case CONTROL_PARAMETER_ENTER:
             voice_edit_mode = true;
             if (tree_level == 0u) { tree_level = 1u; tree_lane = 0u; display_parameter = DISPLAY_GLOBAL_COUNT; }
-            else if (tree_level == 1u) { tree_level = 2u; display_parameter = DISPLAY_GLOBAL_COUNT + tree_lane * DISPLAY_VOICE_PARAMETER_COUNT; }
+            else if (tree_level == 1u) { tree_level = 2u; tree_section = 0u; }
+            else if (tree_level == 2u) { tree_level = 3u; display_parameter = DISPLAY_GLOBAL_COUNT + tree_lane * DISPLAY_VOICE_PARAMETER_COUNT; }
             show_display_state();
             break;
         case CONTROL_PARAMETER_BACK:
-            voice_edit_mode = false;
-            tree_level = 0u;
-            display_parameter = 0u;
+            if (tree_level == 3u) tree_level = 2u;
+            else if (tree_level == 2u) tree_level = 1u;
+            else { voice_edit_mode = false; tree_level = 0u; display_parameter = 0u; }
             show_display_state();
             break;
         case CONTROL_PARAMETER_PREVIOUS:
             if (tree_level == 1u) { tree_lane = (uint8_t)((tree_lane + 2u) % 3u); show_display_state(); break; }
+            if (tree_level == 2u) { tree_section = (uint8_t)((tree_section + TREE_SECTION_COUNT - 1u) % TREE_SECTION_COUNT); show_display_state(); break; }
             if (voice_edit_mode) {
                 if (display_parameter <= DISPLAY_GLOBAL_COUNT) display_parameter = DISPLAY_PARAMETER_COUNT - 1u;
                 else display_parameter--;
@@ -180,6 +190,7 @@ static void apply_control(control_event_t event) {
             break;
         case CONTROL_PARAMETER_NEXT:
             if (tree_level == 1u) { tree_lane = (uint8_t)((tree_lane + 1u) % 3u); show_display_state(); break; }
+            if (tree_level == 2u) { tree_section = (uint8_t)((tree_section + 1u) % TREE_SECTION_COUNT); show_display_state(); break; }
             if (voice_edit_mode) {
                 display_parameter++;
                 if (display_parameter >= DISPLAY_PARAMETER_COUNT) display_parameter = DISPLAY_GLOBAL_COUNT;
