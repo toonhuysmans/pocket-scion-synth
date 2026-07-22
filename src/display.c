@@ -197,7 +197,7 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
     const uint16_t colour = 0x07ffu;
     for (unsigned step = 0; step < LISSAJOUS_POINTS_PER_STEP; ++step) {
         unsigned i = (cursor + step) & 255u;
-        if (drawn[i] != 0u) block(old_x[i], old_y[i], 2, 2, 0);
+        if (drawn[i] != 0u) block(old_x[i], old_y[i], 1, 1, 0);
         unsigned qx = (((unsigned)curve_phase << 2u) + i * a) & 255u;
         unsigned qy = (((unsigned)curve_phase << 2u) + i * b + 52u + ((unsigned)curve_motion << 2u)) & 255u;
         unsigned bx = qx >> 2u, by = qy >> 2u;
@@ -215,7 +215,7 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
         if (y > 131) y = 131;
         old_x[i] = (uint8_t)x; old_y[i] = (uint8_t)y;
         drawn[i] = 1u;
-        block(old_x[i], old_y[i], 2, 2, colour);
+        block(old_x[i], old_y[i], 1, 1, colour);
     }
     cursor = (uint16_t)((cursor + LISSAJOUS_POINTS_PER_STEP) & 255u);
 #undef LISSAJOUS_POINTS_PER_STEP
