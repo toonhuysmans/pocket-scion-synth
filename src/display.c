@@ -192,8 +192,11 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
     if (colour == 0u) colour = 0x07ffu;
     for (unsigned i = 0; i < 20u; ++i) {
         unsigned p = i * 64u / 20u;
-        int x = 118 + sine[(phase * a + p) & 63u] * (88 + sensor / 8) / 127;
-        int y = 66 + sine[(phase * b + p + 13u + motion) & 63u] * 54 / 127;
+        // The ratios multiply the curve parameter, not merely time. Applying
+        // them only to phase translates an ellipse; applying them to p creates
+        // the intended multi-lobed Lissajous geometry.
+        int x = 118 + sine[(phase + p * a) & 63u] * (88 + sensor / 8) / 127;
+        int y = 66 + sine[(phase + p * b + 13u + motion) & 63u] * 54 / 127;
         if (x < 1) x = 1;
         if (x > 236) x = 236;
         if (y < 1) y = 1;
