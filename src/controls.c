@@ -129,6 +129,9 @@ control_event_t controls_poll(void) {
                 button->pressed_us = now;
             } else {
                 released_event[i] = true;
+                // A long press is already an Enter/Back action; consume the
+                // release so it cannot generate an additional step.
+                if (button->long_fired) button->action_sent = true;
             }
         }
     }
