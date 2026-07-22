@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "hardware/gpio.h"
+#include "hardware/dma.h"
 #include "hardware/spi.h"
 #include "pico/stdlib.h"
 
@@ -19,6 +20,16 @@
 #define LCD_Y_OFFSET 53u
 static unsigned display_generation;
 static char old_breadcrumb[10];
+static int screensaver_dma = -1;
+static bool screensaver_dma_active;
+static uint8_t screensaver_frame[240u * 135u * 2u];
+
+static void finish_screensaver_dma(void) {
+    if (!screensaver_dma_active) return;
+    dma_channel_wait_for_finish_blocking((uint)screensaver_dma);
+    gpio_put(LCD_CS, 1);
+    screensaver_dma_active = false;
+}
 
 static void command(uint8_t value) {
     gpio_put(LCD_DC, 0); gpio_put(LCD_CS, 0);
@@ -74,18 +85,6 @@ static void text(const char *message, uint16_t x, uint16_t y, uint16_t colour) {
         gpio_put(LCD_CS, 1); cursor += 12u; ++message;
     }
 }
-static void block(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
-                  uint16_t colour) {
-    uint8_t pixels[32u * 2u];
-    unsigned count = width * height;
-    if (count > 32u) count = 32u;
-    for (unsigned i = 0; i < count; ++i) {
-        pixels[i * 2u] = (uint8_t)(colour >> 8);
-        pixels[i * 2u + 1u] = (uint8_t)colour;
-    }
-    window(x, y, width, height); gpio_put(LCD_DC, 1); gpio_put(LCD_CS, 0);
-    spi_write_blocking(LCD_SPI, pixels, count * 2u); gpio_put(LCD_CS, 1);
-}
 void display_init(void) {
     spi_init(LCD_SPI, 40000000u);
     gpio_set_function(LCD_SCK, GPIO_FUNC_SPI); gpio_set_function(LCD_MOSI, GPIO_FUNC_SPI);
@@ -101,9 +100,11 @@ void display_init(void) {
     gpio_put(LCD_DC, 1); gpio_put(LCD_CS, 0);
     for (unsigned i = 0; i < 240u * 135u; ++i) spi_write_blocking(LCD_SPI, black, 2);
     gpio_put(LCD_CS, 1);
+    screensaver_dma = dma_claim_unused_channel(true);
 }
 void display_show_parameter(const char *name, int value, int minimum, int maximum,
                             unsigned program, unsigned bank, bool simulated_sensor) {
+    finish_screensaver_dma();
     char line[40];
     static bool shown;
     static unsigned old_program, old_bank;
@@ -133,6 +134,7 @@ void display_show_parameter(const char *name, int value, int minimum, int maximu
 }
 void display_show_menu_node(const char *name, unsigned index, unsigned count,
                             unsigned program, unsigned bank, bool simulated_sensor) {
+    finish_screensaver_dma();
     char line[40];
     char shown_name[20];
     snprintf(shown_name, sizeof(shown_name), "%.19s", name);
@@ -146,6 +148,7 @@ void display_show_menu_node(const char *name, unsigned index, unsigned count,
     ++display_generation;
 }
 void display_set_breadcrumb(const char *path) {
+    finish_screensaver_dma();
     char shown[10];
     snprintf(shown, sizeof(shown), "%.9s", path);
     if (strcmp(shown, old_breadcrumb) == 0) return;
@@ -157,6 +160,7 @@ void display_set_breadcrumb(const char *path) {
     old_breadcrumb[sizeof(old_breadcrumb) - 1u] = '\0';
 }
 void display_clear_band(unsigned band) {
+    finish_screensaver_dma();
     if (band >= 14u) return;
     uint16_t y = (uint16_t)(band * 10u);
     uint16_t height = y + 10u <= 135u ? 10u : (uint16_t)(135u - y);
@@ -173,33 +177,26 @@ void display_clear_band(unsigned band) {
 }
 void display_screensaver_step(uint8_t phase, uint8_t motion,
                               uint8_t density, uint8_t sensor) {
-#define LISSAJOUS_POINT_COUNT 256u
-#define LISSAJOUS_POINTS_PER_STEP 256u
     static const int8_t sine[64] = {
         0,12,25,37,49,60,71,81,90,98,106,112,117,122,125,126,
         127,126,125,122,117,112,106,98,90,81,71,60,49,37,25,12,
         0,-12,-25,-37,-49,-60,-71,-81,-90,-98,-106,-112,-117,-122,-125,-126,
         -127,-126,-125,-122,-117,-112,-106,-98,-90,-81,-71,-60,-49,-37,-25,-12
     };
-    static uint8_t old_x[LISSAJOUS_POINT_COUNT], old_y[LISSAJOUS_POINT_COUNT];
-    static uint8_t drawn[LISSAJOUS_POINT_COUNT];
-    static uint16_t cursor;
-    static uint8_t curve_phase, curve_motion, curve_density, curve_sensor;
-    if (cursor == 0u) {
-        curve_phase = phase; curve_motion = motion;
-        curve_density = density; curve_sensor = sensor;
+    if (screensaver_dma_active) {
+        if (dma_channel_is_busy((uint)screensaver_dma)) return;
+        gpio_put(LCD_CS, 1); screensaver_dma_active = false;
     }
+    memset(screensaver_frame, 0, sizeof(screensaver_frame));
+    uint8_t point_x[256], point_y[256];
     // Higher, deliberately separated ratios create multi-lobed Lissajous
     // figures instead of spending most of the time near an ellipse.
-    unsigned a = 2u + (curve_motion % 4u);
-    unsigned b = 3u + ((curve_density + curve_sensor / 24u) % 5u);
+    unsigned a = 2u + (motion % 4u);
+    unsigned b = 3u + ((density + sensor / 24u) % 5u);
     if (b == a || b == a * 2u) ++b;
-    const uint16_t colour = 0x07ffu;
-    for (unsigned step = 0; step < LISSAJOUS_POINTS_PER_STEP; ++step) {
-        unsigned i = (cursor + step) & 255u;
-        if (drawn[i] != 0u) block(old_x[i], old_y[i], 1, 1, 0);
-        unsigned qx = (((unsigned)curve_phase << 2u) + i * a) & 255u;
-        unsigned qy = (((unsigned)curve_phase << 2u) + i * b + 52u + ((unsigned)curve_motion << 2u)) & 255u;
+    for (unsigned i = 0; i < 256u; ++i) {
+        unsigned qx = (((unsigned)phase << 2u) + i * a) & 255u;
+        unsigned qy = (((unsigned)phase << 2u) + i * b + 52u + ((unsigned)motion << 2u)) & 255u;
         unsigned bx = qx >> 2u, by = qy >> 2u;
         unsigned fx = qx & 3u, fy = qy & 3u;
         int sx = (sine[bx] * (int)(4u - fx) + sine[(bx + 1u) & 63u] * (int)fx) / 4;
@@ -207,19 +204,38 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
         // The ratios multiply the curve parameter, not merely time. Applying
         // them only to phase translates an ellipse; applying them to p creates
         // the intended multi-lobed Lissajous geometry.
-        int x = 118 + sx * (88 + curve_sensor / 8) / 127;
+        int x = 118 + sx * (88 + sensor / 8) / 127;
         int y = 66 + sy * 54 / 127;
         if (x < 1) x = 1;
         if (x > 236) x = 236;
         if (y < 1) y = 1;
         if (y > 131) y = 131;
-        old_x[i] = (uint8_t)x; old_y[i] = (uint8_t)y;
-        drawn[i] = 1u;
-        block(old_x[i], old_y[i], 1, 1, colour);
+        point_x[i] = (uint8_t)x; point_y[i] = (uint8_t)y;
     }
-    cursor = (uint16_t)((cursor + LISSAJOUS_POINTS_PER_STEP) & 255u);
-#undef LISSAJOUS_POINTS_PER_STEP
-#undef LISSAJOUS_POINT_COUNT
+    for (unsigned i = 0; i < 256u; ++i) {
+        int x0=point_x[i], y0=point_y[i];
+        int x1=point_x[(i+1u)&255u], y1=point_y[(i+1u)&255u];
+        int dx=x1>x0?x1-x0:x0-x1, sx=x0<x1?1:-1;
+        int dy=y1>y0?y0-y1:y1-y0, sy=y0<y1?1:-1;
+        int error=dx+dy;
+        for (;;) {
+            unsigned pixel=((unsigned)y0*240u+(unsigned)x0)*2u;
+            screensaver_frame[pixel]=0x07u;screensaver_frame[pixel+1u]=0xffu;
+            if(x0==x1&&y0==y1)break;
+            int twice=error*2;
+            if(twice>=dy){error+=dy;x0+=sx;}
+            if(twice<=dx){error+=dx;y0+=sy;}
+        }
+    }
+    window(0,0,240,135);gpio_put(LCD_DC,1);gpio_put(LCD_CS,0);
+    dma_channel_config config=dma_channel_get_default_config((uint)screensaver_dma);
+    channel_config_set_transfer_data_size(&config,DMA_SIZE_8);
+    channel_config_set_read_increment(&config,true);
+    channel_config_set_write_increment(&config,false);
+    channel_config_set_dreq(&config,spi_get_dreq(LCD_SPI,true));
+    dma_channel_configure((uint)screensaver_dma,&config,&spi_get_hw(LCD_SPI)->dr,
+                          screensaver_frame,sizeof(screensaver_frame),true);
+    screensaver_dma_active=true;
 }
 #else
 void display_init(void) {}
