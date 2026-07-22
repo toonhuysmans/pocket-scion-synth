@@ -18,6 +18,7 @@
 #define LCD_X_OFFSET 40u
 #define LCD_Y_OFFSET 53u
 static unsigned display_generation;
+static char old_breadcrumb[10];
 
 static void command(uint8_t value) {
     gpio_put(LCD_DC, 0); gpio_put(LCD_CS, 0);
@@ -72,6 +73,18 @@ static void text(const char *message, uint16_t x, uint16_t y, uint16_t colour) {
         spi_write_blocking(LCD_SPI, pixels, sizeof(pixels));
         gpio_put(LCD_CS, 1); cursor += 12u; ++message;
     }
+}
+static void block(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
+                  uint16_t colour) {
+    uint8_t pixels[32u * 2u];
+    unsigned count = width * height;
+    if (count > 32u) count = 32u;
+    for (unsigned i = 0; i < count; ++i) {
+        pixels[i * 2u] = (uint8_t)(colour >> 8);
+        pixels[i * 2u + 1u] = (uint8_t)colour;
+    }
+    window(x, y, width, height); gpio_put(LCD_DC, 1); gpio_put(LCD_CS, 0);
+    spi_write_blocking(LCD_SPI, pixels, count * 2u); gpio_put(LCD_CS, 1);
 }
 void display_init(void) {
     spi_init(LCD_SPI, 40000000u);
@@ -132,6 +145,61 @@ void display_show_menu_node(const char *name, unsigned index, unsigned count,
     text(simulated_sensor ? "SENSOR SIM" : "SENSOR LIVE", 4, 108, 0x07ff);
     ++display_generation;
 }
+void display_set_breadcrumb(const char *path) {
+    char shown[10];
+    snprintf(shown, sizeof(shown), "%.9s", path);
+    if (strcmp(shown, old_breadcrumb) == 0) return;
+    text("          ", 120, 108, 0);
+    size_t length = strlen(shown);
+    uint16_t x = (uint16_t)(236u - (length > 9u ? 9u : length) * 12u);
+    text(shown, x, 108, 0xf81f);
+    strncpy(old_breadcrumb, shown, sizeof(old_breadcrumb) - 1u);
+    old_breadcrumb[sizeof(old_breadcrumb) - 1u] = '\0';
+}
+void display_clear_band(unsigned band) {
+    if (band >= 14u) return;
+    uint16_t y = (uint16_t)(band * 10u);
+    uint16_t height = y + 10u <= 135u ? 10u : (uint16_t)(135u - y);
+    window(0, y, 240, height);
+    uint8_t black[64] = {0};
+    gpio_put(LCD_DC, 1); gpio_put(LCD_CS, 0);
+    unsigned bytes = 240u * height * 2u;
+    while (bytes != 0u) {
+        unsigned chunk = bytes > sizeof(black) ? sizeof(black) : bytes;
+        spi_write_blocking(LCD_SPI, black, chunk); bytes -= chunk;
+    }
+    gpio_put(LCD_CS, 1);
+    if (band == 13u) { old_breadcrumb[0] = '\0'; ++display_generation; }
+}
+void display_screensaver_step(uint8_t phase, uint8_t motion,
+                              uint8_t density, uint8_t sensor) {
+    static const int8_t sine[64] = {
+        0,12,25,37,49,60,71,81,90,98,106,112,117,122,125,126,
+        127,126,125,122,117,112,106,98,90,81,71,60,49,37,25,12,
+        0,-12,-25,-37,-49,-60,-71,-81,-90,-98,-106,-112,-117,-122,-125,-126,
+        -127,-126,-125,-122,-117,-112,-106,-98,-90,-81,-71,-60,-49,-37,-25,-12
+    };
+    static uint8_t old_x[20], old_y[20];
+    static bool valid;
+    if (valid) for (unsigned i = 0; i < 20u; ++i) block(old_x[i], old_y[i], 3, 3, 0);
+    unsigned a = 2u + (motion & 3u);
+    unsigned b = 3u + (density % 5u);
+    uint16_t colour = (uint16_t)((((sensor >> 2u) & 31u) << 11u) |
+        (((motion + 24u) & 63u) << 5u) | ((density + 12u) & 31u));
+    if (colour == 0u) colour = 0x07ffu;
+    for (unsigned i = 0; i < 20u; ++i) {
+        unsigned p = i * 64u / 20u;
+        int x = 118 + sine[(phase * a + p) & 63u] * (88 + sensor / 8) / 127;
+        int y = 66 + sine[(phase * b + p + 13u + motion) & 63u] * 54 / 127;
+        if (x < 1) x = 1;
+        if (x > 236) x = 236;
+        if (y < 1) y = 1;
+        if (y > 131) y = 131;
+        old_x[i] = (uint8_t)x; old_y[i] = (uint8_t)y;
+        block(old_x[i], old_y[i], 3, 3, colour);
+    }
+    valid = true;
+}
 #else
 void display_init(void) {}
 void display_show_parameter(const char *name, int value, int minimum, int maximum,
@@ -141,5 +209,11 @@ void display_show_parameter(const char *name, int value, int minimum, int maximu
 void display_show_menu_node(const char *name, unsigned index, unsigned count,
                             unsigned program, unsigned bank, bool simulated_sensor) {
     (void)name; (void)index; (void)count; (void)program; (void)bank; (void)simulated_sensor;
+}
+void display_set_breadcrumb(const char *path) { (void)path; }
+void display_clear_band(unsigned band) { (void)band; }
+void display_screensaver_step(uint8_t phase, uint8_t motion,
+                              uint8_t density, uint8_t sensor) {
+    (void)phase; (void)motion; (void)density; (void)sensor;
 }
 #endif

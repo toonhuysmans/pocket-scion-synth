@@ -309,6 +309,9 @@ int main(void) {
         sensor_service();
         synth_service(&synth);
         apply_control(controls_poll());
+#if PICO_RP2350
+        pico2_menu_service(&synth);
+#endif
 
         sensor_stats_t stats;
         if (sensor_take_window(&stats, synth_sensitivity(&synth))) {

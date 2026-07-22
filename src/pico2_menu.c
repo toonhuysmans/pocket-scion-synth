@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include "display.h"
+#include "pico/time.h"
 
 enum { ROOT_GLOBAL, ROOT_PROGRAM, ROOT_PATCH, ROOT_SEQUENCE, ROOT_ARTICULATION,
        ROOT_MOTION, ROOT_SPEECH, ROOT_BANK, ROOT_SENSOR, ROOT_ACTIONS, ROOT_COUNT };
@@ -13,6 +14,8 @@ typedef struct {
     uint8_t level, root, lane, section;
     uint16_t leaf;
     int8_t action_result;
+    uint8_t saver_state, clear_band;
+    uint64_t last_activity_us, next_display_us, input_guard_until_us;
 } menu_state_t;
 
 static menu_state_t menu;
@@ -20,6 +23,7 @@ static const char *const root_names[ROOT_COUNT] = {
     "GLOBALS", "BANK/INSTRUMENT", "PATCH", "SEQUENCE", "ARTICULATION",
     "MOTION", "SPEECH", "BANK", "SENSOR", "SAVE/REVERT"
 };
+static const char *const root_abbrev[ROOT_COUNT] = {"GL","BI","P","SQ","AR","MO","SP","BK","SN","SV"};
 static const char *const lane_names[3] = {"BASS", "PAD", "LEAD"};
 static const char *const scene_sections[8] = {
     "OSCILLATORS", "FILTER", "MOD ENVELOPE", "VOICE",
@@ -171,8 +175,16 @@ static void current_meta(synth_t *s,uint8_t *scope,uint8_t *lane,uint8_t *param,
     else {*scope=0;*param=(uint8_t)menu.leaf;*name=action_names[*param];*hi=1;}
 }
 
-void pico2_menu_init(void){menu=(menu_state_t){0};}
+static void breadcrumb(char *out,size_t n){
+    if(menu.root==ROOT_PATCH&&menu.level>=LEVEL_LANE){
+        if(menu.level>=LEVEL_SECTION)snprintf(out,n,"P>%c>%u",lane_names[menu.lane][0],menu.section+1u);
+        else snprintf(out,n,"P>%c",lane_names[menu.lane][0]);
+    }else if(menu.level>=LEVEL_SECTION)snprintf(out,n,"%s>%u",root_abbrev[menu.root],menu.section+1u);
+    else snprintf(out,n,"%s",root_abbrev[menu.root]);
+}
+void pico2_menu_init(void){menu=(menu_state_t){0};menu.last_activity_us=time_us_64();}
 void pico2_menu_show(synth_t *s){
+    char path[10];breadcrumb(path,sizeof path);display_set_breadcrumb(path);
     if(menu.level==LEVEL_ROOT){display_show_menu_node(root_names[menu.root],menu.root+1,ROOT_COUNT,s->program_index,s->bank_index,true);return;}
     if(menu.root==ROOT_PATCH&&menu.level==LEVEL_LANE){display_show_menu_node(lane_names[menu.lane],menu.lane+1,3,s->program_index,s->bank_index,true);return;}
     if(menu.level==LEVEL_SECTION){unsigned total=section_total(menu.root,menu.lane);display_show_menu_node(section_title(),menu.section+1,total,s->program_index,s->bank_index,true);return;}
@@ -201,10 +213,32 @@ static void edit(synth_t *s,int d){
     (void)synth_editor_set(s,scope,target,lane,param,next);
 }
 bool pico2_menu_handle(synth_t *s,control_event_t e){
+    if(e!=CONTROL_NONE){
+        uint64_t event_time=time_us_64();menu.last_activity_us=event_time;
+        if(menu.saver_state==1u||menu.saver_state==2u){menu.saver_state=3u;menu.clear_band=0u;menu.next_display_us=event_time;menu.input_guard_until_us=event_time+250000u;return true;}
+        if(menu.saver_state==3u)return true;
+        if(event_time<menu.input_guard_until_us){menu.input_guard_until_us=event_time+250000u;return true;}
+    }
     if(e==CONTROL_PARAMETER_ENTER){if(menu.level==LEVEL_ROOT){if(menu.root==ROOT_PATCH)menu.level=LEVEL_LANE;else if(section_total(menu.root,menu.lane)>0u){menu.level=LEVEL_SECTION;menu.section=0;}else menu.level=LEVEL_LEAF;menu.leaf=0;}else if(menu.root==ROOT_PATCH&&menu.level==LEVEL_LANE){menu.level=LEVEL_SECTION;menu.section=0;}else if(menu.level==LEVEL_SECTION){menu.level=LEVEL_LEAF;menu.leaf=0;}pico2_menu_show(s);return true;}
     if(e==CONTROL_PARAMETER_BACK){if(menu.level==LEVEL_LEAF)menu.level=section_total(menu.root,menu.lane)>0u?LEVEL_SECTION:LEVEL_ROOT;else if(menu.level==LEVEL_SECTION)menu.level=menu.root==ROOT_PATCH?LEVEL_LANE:LEVEL_ROOT;else if(menu.level==LEVEL_LANE)menu.level=LEVEL_ROOT;pico2_menu_show(s);return true;}
     if(e==CONTROL_PARAMETER_NEXT||e==CONTROL_PARAMETER_PREVIOUS){int d=e==CONTROL_PARAMETER_NEXT?1:-1;menu.action_result=0;if(menu.level==LEVEL_ROOT)menu.root=(uint8_t)(d<0?(menu.root+ROOT_COUNT-1u)%ROOT_COUNT:(menu.root+1u)%ROOT_COUNT);else if(menu.root==ROOT_PATCH&&menu.level==LEVEL_LANE)menu.lane=(uint8_t)(d<0?(menu.lane+2u)%3u:(menu.lane+1u)%3u);else if(menu.level==LEVEL_SECTION){unsigned total=section_total(menu.root,menu.lane);menu.section=(uint8_t)(d<0?(menu.section+total-1u)%total:(menu.section+1u)%total);}else move_leaf(d);pico2_menu_show(s);return true;}
     if(e==CONTROL_PARAMETER_INCREASE||e==CONTROL_PARAMETER_DECREASE){if(menu.level==LEVEL_LEAF)edit(s,e==CONTROL_PARAMETER_INCREASE?1:-1);pico2_menu_show(s);return true;}
     return false;
+}
+void pico2_menu_service(synth_t *s){
+    uint64_t now=time_us_64();
+    if(menu.saver_state==0u&&now-menu.last_activity_us>=15000000u){menu.saver_state=1u;menu.clear_band=0u;menu.next_display_us=now;}
+    if((menu.saver_state==1u||menu.saver_state==3u)&&now>=menu.next_display_us){
+        display_clear_band(menu.clear_band++);menu.next_display_us=now+10000u;
+        if(menu.clear_band>=14u){if(menu.saver_state==1u)menu.saver_state=2u;else{menu.saver_state=0u;pico2_menu_show(s);}}
+        return;
+    }
+    if(menu.saver_state==2u&&now>=menu.next_display_us){
+        uint8_t phase=(uint8_t)((s->transport_frame>>11u)&63u);
+        uint8_t motion=(uint8_t)(s->sequence_step+s->visual_lfo+(uint8_t)s->note_on_counter);
+        uint8_t density=(uint8_t)(s->euclid_pulses[0]+s->euclid_pulses[1]+s->euclid_pulses[2]);
+        uint8_t sensor=(uint8_t)(s->sensor_expression*127.0f);
+        display_screensaver_step(phase,motion,density,sensor);menu.next_display_us=now+40000u;
+    }
 }
 #endif
