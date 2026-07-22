@@ -252,6 +252,10 @@ control_event_t controls_poll(void) {
             return i == 0u ? CONTROL_PARAMETER_ENTER : CONTROL_PARAMETER_BACK;
         }
         if (!buttons[i].stable_pressed || buttons[i].long_fired) continue;
+#if PICO_RP2350
+        // A/B are tree navigation buttons: holding them must never auto-scroll.
+        if (i < 2u) continue;
+#endif
 #if !PICO_RP2350
         if (i == MODE_BUTTON_INDEX) continue;
 #endif
