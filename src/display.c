@@ -23,12 +23,32 @@ static char old_breadcrumb[10];
 static int screensaver_dma = -1;
 static bool screensaver_dma_active;
 static uint8_t screensaver_frame[240u * 135u * 2u];
+static void window(uint16_t x, uint16_t y, uint16_t width, uint16_t height);
 
 static void finish_screensaver_dma(void) {
     if (!screensaver_dma_active) return;
     dma_channel_wait_for_finish_blocking((uint)screensaver_dma);
     gpio_put(LCD_CS, 1);
     screensaver_dma_active = false;
+}
+static bool begin_frame(void) {
+    if (screensaver_dma_active) {
+        if (dma_channel_is_busy((uint)screensaver_dma)) return false;
+        gpio_put(LCD_CS, 1); screensaver_dma_active = false;
+    }
+    memset(screensaver_frame, 0, sizeof(screensaver_frame));
+    return true;
+}
+static void submit_frame(void) {
+    window(0,0,240,135);gpio_put(LCD_DC,1);gpio_put(LCD_CS,0);
+    dma_channel_config config=dma_channel_get_default_config((uint)screensaver_dma);
+    channel_config_set_transfer_data_size(&config,DMA_SIZE_8);
+    channel_config_set_read_increment(&config,true);
+    channel_config_set_write_increment(&config,false);
+    channel_config_set_dreq(&config,spi_get_dreq(LCD_SPI,true));
+    dma_channel_configure((uint)screensaver_dma,&config,&spi_get_hw(LCD_SPI)->dr,
+                          screensaver_frame,sizeof(screensaver_frame),true);
+    screensaver_dma_active=true;
 }
 
 static void command(uint8_t value) {
@@ -183,11 +203,7 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
         0,-12,-25,-37,-49,-60,-71,-81,-90,-98,-106,-112,-117,-122,-125,-126,
         -127,-126,-125,-122,-117,-112,-106,-98,-90,-81,-71,-60,-49,-37,-25,-12
     };
-    if (screensaver_dma_active) {
-        if (dma_channel_is_busy((uint)screensaver_dma)) return;
-        gpio_put(LCD_CS, 1); screensaver_dma_active = false;
-    }
-    memset(screensaver_frame, 0, sizeof(screensaver_frame));
+    if (!begin_frame()) return;
     uint8_t point_x[256], point_y[256];
     // Higher, deliberately separated ratios create multi-lobed Lissajous
     // figures instead of spending most of the time near an ellipse.
@@ -236,15 +252,34 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
             if(twice<=dx){error+=dx;y0+=sy;}
         }
     }
-    window(0,0,240,135);gpio_put(LCD_DC,1);gpio_put(LCD_CS,0);
-    dma_channel_config config=dma_channel_get_default_config((uint)screensaver_dma);
-    channel_config_set_transfer_data_size(&config,DMA_SIZE_8);
-    channel_config_set_read_increment(&config,true);
-    channel_config_set_write_increment(&config,false);
-    channel_config_set_dreq(&config,spi_get_dreq(LCD_SPI,true));
-    dma_channel_configure((uint)screensaver_dma,&config,&spi_get_hw(LCD_SPI)->dr,
-                          screensaver_frame,sizeof(screensaver_frame),true);
-    screensaver_dma_active=true;
+    submit_frame();
+}
+bool display_show_word(const char *word) {
+    if (!begin_frame()) return false;
+    old_breadcrumb[0] = '\0';
+    ++display_generation;
+    size_t length = strlen(word);
+    unsigned scale = length <= 9u ? 4u : 2u;
+    unsigned cell_width = 6u * scale;
+    if (length * cell_width > 236u) length = 236u / cell_width;
+    unsigned x0 = (240u - length * cell_width) / 2u;
+    unsigned y0 = (135u - 7u * scale) / 2u;
+    for (unsigned character = 0; character < length; ++character) {
+        char c = word[character];
+        if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+        for (unsigned row = 0; row < 7u; ++row) for (unsigned column = 0; column < 5u; ++column) {
+            if (((glyph(c, column) >> row) & 1u) == 0u) continue;
+            for (unsigned sy = 0; sy < scale; ++sy) for (unsigned sx = 0; sx < scale; ++sx) {
+                unsigned x = x0 + character * cell_width + column * scale + sx;
+                unsigned y = y0 + row * scale + sy;
+                unsigned pixel = (y * 240u + x) * 2u;
+                screensaver_frame[pixel] = 0xffu;
+                screensaver_frame[pixel + 1u] = 0xffu;
+            }
+        }
+    }
+    submit_frame();
+    return true;
 }
 #else
 void display_init(void) {}
@@ -262,4 +297,5 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
                               uint8_t density, uint8_t sensor) {
     (void)phase; (void)motion; (void)density; (void)sensor;
 }
+bool display_show_word(const char *word) { (void)word; return false; }
 #endif

@@ -3,8 +3,10 @@
 #if PICO_RP2350
 
 #include <stdio.h>
+#include <string.h>
 #include "display.h"
 #include "pico/time.h"
+#include "sam_voice.h"
 
 enum { ROOT_GLOBAL, ROOT_PROGRAM, ROOT_PATCH, ROOT_SEQUENCE, ROOT_ARTICULATION,
        ROOT_MOTION, ROOT_SPEECH, ROOT_BANK, ROOT_SENSOR, ROOT_ACTIONS, ROOT_COUNT };
@@ -16,6 +18,10 @@ typedef struct {
     int8_t action_result;
     uint8_t saver_state, clear_band;
     uint64_t last_activity_us, next_display_us, input_guard_until_us;
+    bool speech_showing, voice_was_active;
+    uint8_t word_offset;
+    uint64_t next_word_us;
+    char speech_text[SAM_VOICE_PHRASE_LENGTH];
 } menu_state_t;
 
 static menu_state_t menu;
@@ -182,6 +188,17 @@ static void breadcrumb(char *out,size_t n){
     }else if(menu.level>=LEVEL_SECTION)snprintf(out,n,"%s>%u",root_abbrev[menu.root],menu.section+1u);
     else snprintf(out,n,"%s",root_abbrev[menu.root]);
 }
+static bool next_word(uint8_t offset,char *word,size_t capacity,uint8_t *next_offset){
+    unsigned i=offset;
+    while(menu.speech_text[i]!='\0'&&!((menu.speech_text[i]>='A'&&menu.speech_text[i]<='Z')||(menu.speech_text[i]>='a'&&menu.speech_text[i]<='z')||(menu.speech_text[i]>='0'&&menu.speech_text[i]<='9')))++i;
+    if(menu.speech_text[i]=='\0')return false;
+    unsigned length=0;
+    while(menu.speech_text[i]!='\0'&&((menu.speech_text[i]>='A'&&menu.speech_text[i]<='Z')||(menu.speech_text[i]>='a'&&menu.speech_text[i]<='z')||(menu.speech_text[i]>='0'&&menu.speech_text[i]<='9')||menu.speech_text[i]=='-')){
+        if(length+1u<capacity)word[length++]=menu.speech_text[i];
+        ++i;
+    }
+    word[length]='\0';*next_offset=(uint8_t)i;return length!=0u;
+}
 void pico2_menu_init(void){menu=(menu_state_t){0};menu.last_activity_us=time_us_64();}
 void pico2_menu_show(synth_t *s){
     char path[10];breadcrumb(path,sizeof path);display_set_breadcrumb(path);
@@ -215,6 +232,7 @@ static void edit(synth_t *s,int d){
 bool pico2_menu_handle(synth_t *s,control_event_t e){
     if(e!=CONTROL_NONE){
         uint64_t event_time=time_us_64();menu.last_activity_us=event_time;
+        if(menu.speech_showing){menu.speech_showing=false;pico2_menu_show(s);}
         if(menu.saver_state==1u||menu.saver_state==2u){menu.saver_state=3u;menu.clear_band=0u;menu.next_display_us=event_time;menu.input_guard_until_us=event_time+250000u;return true;}
         if(menu.saver_state==3u)return true;
         if(event_time<menu.input_guard_until_us){menu.input_guard_until_us=event_time+250000u;return true;}
@@ -227,6 +245,35 @@ bool pico2_menu_handle(synth_t *s,control_event_t e){
 }
 void pico2_menu_service(synth_t *s){
     uint64_t now=time_us_64();
+    bool voice_active=sam_voice_active();
+    if(voice_active&&!menu.voice_was_active&&s->speech_last_phrase<SAM_VOICE_PHRASE_COUNT){
+        if(synth_editor_get_phrase(s,synth_program_id(s),s->speech_last_phrase,
+                                   menu.speech_text,sizeof(menu.speech_text))){
+            menu.speech_showing=true;menu.word_offset=0u;menu.next_word_us=now;
+            menu.last_activity_us=now;
+        }
+    }
+    menu.voice_was_active=voice_active;
+    if(menu.speech_showing){
+        if(now>=menu.next_word_us){
+            char word[20];uint8_t next_offset;
+            if(next_word(menu.word_offset,word,sizeof(word),&next_offset)){
+                if(display_show_word(word)){
+                    menu.word_offset=next_offset;uint16_t speed=72u;
+                    (void)synth_editor_get(s,SYNTH_EDITOR_SCOPE_PATCH,synth_program_id(s),
+                                           SYNTH_EDITOR_SPEECH_LANE,2u,&speed);
+                    unsigned duration=120u+(unsigned)strlen(word)*55u;
+                    duration=duration*(speed==0u?1u:speed)/72u;
+                    if(duration<180u)duration=180u;
+                    if(duration>1400u)duration=1400u;
+                    menu.next_word_us=now+(uint64_t)duration*1000u;
+                }
+            }else if(voice_active){menu.next_word_us=now+100000u;}
+            else{menu.speech_showing=false;menu.last_activity_us=now;
+                 if(menu.saver_state==2u)menu.next_display_us=now;else pico2_menu_show(s);}
+        }
+        return;
+    }
     if(menu.saver_state==0u&&now-menu.last_activity_us>=15000000u){menu.saver_state=1u;menu.clear_band=0u;menu.next_display_us=now;}
     if((menu.saver_state==1u||menu.saver_state==3u)&&now>=menu.next_display_us){
         display_clear_band(menu.clear_band++);menu.next_display_us=now+10000u;
