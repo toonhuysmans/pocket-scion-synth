@@ -7,7 +7,14 @@
 
 #define SYNTH_SAMPLE_RATE 48000u
 #define SYNTH_LANE_COUNT 3u
+#if defined(PICO_RP2350)
+// The RP2350 has enough headroom for a dedicated bass voice plus four pad
+// and three lead voices.  Keeping the allocator lane-aware prevents a busy
+// melodic lane from stealing the bass envelope.
+#define SYNTH_VOICE_COUNT 8u
+#else
 #define SYNTH_VOICE_COUNT 3u
+#endif
 #define SYNTH_RATCHET_EVENT_COUNT 12u
 
 #define SYNTH_EDITOR_SCOPE_PATCH 0u

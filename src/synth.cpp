@@ -2257,6 +2257,12 @@ bool start_note(synth_t *synth, uint8_t lane, uint8_t note, uint8_t velocity,
     if (lane >= SYNTH_LANE_COUNT) return false;
     unsigned first_slot = lane;
     unsigned end_slot = lane + 1u;
+#if defined(PICO_RP2350)
+    // Bass stays intentionally monophonic; melodic lanes get independent
+    // note slots and therefore do not retrigger/steal each other's envelopes.
+    if (lane == 1u) { first_slot = 1u; end_slot = 5u; }
+    else if (lane == 2u) { first_slot = 5u; end_slot = 8u; }
+#endif
 
     // Repeated pitches tie within their originating lane, preserving the
     // envelope even when single-channel MIDI gives both melodic lanes channel 1.
@@ -2270,14 +2276,13 @@ bool start_note(synth_t *synth, uint8_t lane, uint8_t note, uint8_t velocity,
         return true;
     }
 
-    synth_note_t *voice = &synth->notes[first_slot];
-
-    if (voice->active) {
-        lane_note_off(lane, voice->note);
-        midi_note_off(voice->midi_channel, voice->note);
-        voice->active = 0u;
-        voice->midi_note_off_pending = 0u;
+    synth_note_t *voice = nullptr;
+    for (unsigned slot = first_slot; slot < end_slot; ++slot) {
+        if (!synth->notes[slot].active) { voice = &synth->notes[slot]; break; }
     }
+    // If every slot is occupied, leave existing notes intact.  Dropping the
+    // newest trigger is preferable to an audible voice steal/click.
+    if (voice == nullptr) return false;
     if (voice->midi_note_off_pending) {
         midi_note_off(voice->midi_channel, voice->note);
         voice->midi_note_off_pending = 0u;
@@ -3135,6 +3140,16 @@ void __not_in_flash_func(synth_render)(synth_t *synth,
             __dmb();
         }
         int16_t bass = process_dry_engine(bass_engine);
+#if defined(PICO_RP2350)
+        // SAM occupies core 1 for the duration of a phrase.  Keep the lead
+        // audible on RP2350 by rendering it locally during speech; otherwise
+        // use the secondary core as before to minimize core-0 load.
+        int16_t upper = speech_rendering
+            ? process_dry_engine(upper_engine)
+            : upper_render_result;
+#else
+        int16_t upper = upper_render_result;
+#endif
         // Paraphonic/polyphonic lead rendering processes four oscillators on
         // core 1 and needs a wider bounded completion window than mono mode.
         unsigned wait_budget = 2048u;
@@ -3150,9 +3165,18 @@ void __not_in_flash_func(synth_render)(synth_t *synth,
             upper_render_result = 0;
         }
         __dmb();
-        int16_t upper = upper_render_result;
-        int16_t dry_input = upper_render_disabled != 0u || speech_rendering ? bass :
+#if !defined(PICO_RP2350)
+        upper = upper_render_result;
+#endif
+        int16_t dry_input;
+#if defined(PICO_RP2350)
+        dry_input = upper_render_disabled != 0u
+            ? bass
+            : static_cast<int16_t>((static_cast<int32_t>(bass) + upper) / 2);
+#else
+        dry_input = upper_render_disabled != 0u || speech_rendering ? bass :
             static_cast<int16_t>((static_cast<int32_t>(bass) + upper) / 2);
+#endif
         int32_t mixed = static_cast<int32_t>(dry_input) +
                         static_cast<int32_t>(sam_voice_next_sample());
         if (mixed > 32767) mixed = 32767;
