@@ -238,7 +238,7 @@ void pico2_menu_service(synth_t *s){
         uint8_t motion=(uint8_t)(s->sequence_step+s->visual_lfo+(uint8_t)s->note_on_counter);
         uint8_t density=(uint8_t)(s->euclid_pulses[0]+s->euclid_pulses[1]+s->euclid_pulses[2]);
         uint8_t sensor=(uint8_t)(s->sensor_expression*127.0f);
-        display_screensaver_step(phase,motion,density,sensor);menu.next_display_us=now+40000u;
+        display_screensaver_step(phase,motion,density,sensor);menu.next_display_us=now+50000u;
     }
 }
 #endif
