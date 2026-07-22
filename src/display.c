@@ -227,10 +227,19 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
         if (y > 131) y = 131;
         point_x[i] = (uint8_t)x; point_y[i] = (uint8_t)y;
     }
+    static uint8_t base_hue, hue_divider;
+    uint8_t target_hue = (uint8_t)((unsigned)motion * 3u +
+                                   (unsigned)density * 7u + sensor);
+    if (++hue_divider >= 4u) {
+        hue_divider = 0u;
+        int8_t difference = (int8_t)(target_hue - base_hue);
+        if (difference > 0) ++base_hue;
+        else if (difference < 0) --base_hue;
+    }
     for (unsigned i = 0; i < 256u; ++i) {
-        uint8_t hue = (uint8_t)(i + ((unsigned)phase << 2u) +
-                                (unsigned)motion * 3u +
-                                (unsigned)density * 7u + sensor);
+        // A quarter-wheel gradient preserves colour along the curve while the
+        // palette itself slews gradually toward the musical target.
+        uint8_t hue = (uint8_t)(base_hue + i / 4u);
         unsigned light = 128u + sensor / 2u + density * 3u;
         if (light > 255u) light = 255u;
         uint16_t colour = screensaver_colour(hue, (uint8_t)light);
