@@ -30,21 +30,6 @@ static void finish_screensaver_dma(void) {
     gpio_put(LCD_CS, 1);
     screensaver_dma_active = false;
 }
-static uint16_t screensaver_colour(uint8_t hue, uint8_t level) {
-    unsigned region = hue / 43u;
-    unsigned ramp = (hue - region * 43u) * 6u;
-    unsigned r = 0u, g = 0u, b = 0u;
-    switch (region) {
-        case 0: r = 255u; g = ramp; break;
-        case 1: r = 255u - ramp; g = 255u; break;
-        case 2: g = 255u; b = ramp; break;
-        case 3: g = 255u - ramp; b = 255u; break;
-        case 4: r = ramp; b = 255u; break;
-        default: r = 255u; b = 255u - ramp; break;
-    }
-    r = r * level / 255u; g = g * level / 255u; b = b * level / 255u;
-    return (uint16_t)(((r >> 3u) << 11u) | ((g >> 2u) << 5u) | (b >> 3u));
-}
 
 static void command(uint8_t value) {
     gpio_put(LCD_DC, 0); gpio_put(LCD_CS, 0);
@@ -227,31 +212,24 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
         if (y > 131) y = 131;
         point_x[i] = (uint8_t)x; point_y[i] = (uint8_t)y;
     }
-    static uint8_t base_hue, hue_divider;
-    uint8_t target_hue = (uint8_t)((unsigned)motion * 3u +
-                                   (unsigned)density * 7u + sensor);
-    if (++hue_divider >= 4u) {
-        hue_divider = 0u;
-        int8_t difference = (int8_t)(target_hue - base_hue);
-        if (difference > 0) ++base_hue;
-        else if (difference < 0) --base_hue;
-    }
+    unsigned drawn_length = 4u + ((motion >> 2u) + sensor / 24u) % 13u;
+    unsigned black_length = 2u + (density + (motion >> 3u)) % 9u;
+    unsigned dash_period = drawn_length + black_length;
+    unsigned dash_position = ((unsigned)phase * 3u + motion) % dash_period;
+    const uint16_t colour = 0xffffu;
     for (unsigned i = 0; i < 256u; ++i) {
-        // A quarter-wheel gradient preserves colour along the curve while the
-        // palette itself slews gradually toward the musical target.
-        uint8_t hue = (uint8_t)(base_hue + i / 4u);
-        unsigned light = 128u + sensor / 2u + density * 3u;
-        if (light > 255u) light = 255u;
-        uint16_t colour = screensaver_colour(hue, (uint8_t)light);
         int x0=point_x[i], y0=point_y[i];
         int x1=point_x[(i+1u)&255u], y1=point_y[(i+1u)&255u];
         int dx=x1>x0?x1-x0:x0-x1, sx=x0<x1?1:-1;
         int dy=y1>y0?y0-y1:y1-y0, sy=y0<y1?1:-1;
         int error=dx+dy;
         for (;;) {
-            unsigned pixel=((unsigned)y0*240u+(unsigned)x0)*2u;
-            screensaver_frame[pixel]=(uint8_t)(colour>>8u);
-            screensaver_frame[pixel+1u]=(uint8_t)colour;
+            if (dash_position < drawn_length) {
+                unsigned pixel=((unsigned)y0*240u+(unsigned)x0)*2u;
+                screensaver_frame[pixel]=(uint8_t)(colour>>8u);
+                screensaver_frame[pixel+1u]=(uint8_t)colour;
+            }
+            if (++dash_position >= dash_period) dash_position = 0u;
             if(x0==x1&&y0==y1)break;
             int twice=error*2;
             if(twice>=dy){error+=dy;x0+=sx;}
