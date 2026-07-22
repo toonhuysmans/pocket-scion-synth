@@ -55,13 +55,21 @@ static uint8_t glyph(char c, unsigned column) {
 }
 static void text(const char *message, uint16_t x, uint16_t y, uint16_t colour) {
     uint16_t cursor = x;
-    while (*message != '\0' && cursor < 232u) {
-        uint8_t pixels[35];
+    const uint16_t scale = 2u;
+    while (*message != '\0' && cursor + 12u <= 240u) {
+        uint8_t pixels[12u * 16u * 2u] = {0};
         for (unsigned row = 0; row < 7u; ++row) for (unsigned col = 0; col < 5u; ++col)
-            pixels[row * 5u + col] = (glyph(*message, col) >> row) & 1u ? 0xffu : 0u;
-        window(cursor, y, 6, 8); gpio_put(LCD_DC, 1); gpio_put(LCD_CS, 0);
-        for (unsigned i = 0; i < 35u; ++i) { uint16_t p = pixels[i] ? colour : 0u; uint8_t b[2] = {(uint8_t)(p >> 8), (uint8_t)p}; spi_write_blocking(LCD_SPI, b, 2); }
-        gpio_put(LCD_CS, 1); cursor += 6u; ++message;
+            for (unsigned sy = 0; sy < scale; ++sy) for (unsigned sx = 0; sx < scale; ++sx) {
+                unsigned px = col * scale + sx;
+                unsigned py = row * scale + sy;
+                uint16_t p = (glyph(*message, col) >> row) & 1u ? colour : 0u;
+                pixels[(py * 12u + px) * 2u] = (uint8_t)(p >> 8);
+                pixels[(py * 12u + px) * 2u + 1u] = (uint8_t)p;
+            }
+        // The sixth column and unused bottom row are black separators.
+        window(cursor, y, 12, 16); gpio_put(LCD_DC, 1); gpio_put(LCD_CS, 0);
+        spi_write_blocking(LCD_SPI, pixels, sizeof(pixels));
+        gpio_put(LCD_CS, 1); cursor += 12u; ++message;
     }
 }
 void display_init(void) {
@@ -77,14 +85,27 @@ void display_init(void) {
 void display_show_parameter(const char *name, int value, int minimum, int maximum,
                             unsigned program, unsigned bank, bool simulated_sensor) {
     char line[40];
-    window(0, 0, 240, 135); uint8_t black[2] = {0, 0};
-    gpio_put(LCD_DC, 1); gpio_put(LCD_CS, 0);
-    for (unsigned i = 0; i < 240u * 135u; ++i) spi_write_blocking(LCD_SPI, black, 2);
-    gpio_put(LCD_CS, 1);
-    snprintf(line, sizeof(line), "BANK %u  INST %u", bank + 1u, program + 1u); text(line, 4, 6, 0xffff);
-    text(name, 4, 32, 0xffe0); snprintf(line, sizeof(line), "%d", value); text(line, 4, 52, 0xffff);
-    snprintf(line, sizeof(line), "%d..%d", minimum, maximum); text(line, 4, 72, 0x7bef);
-    text(simulated_sensor ? "SENSOR SIM" : "SENSOR LIVE", 4, 108, 0x07ff);
+    static bool shown;
+    static unsigned old_program, old_bank;
+    static int old_value, old_minimum, old_maximum;
+    static bool old_sensor;
+    static char old_name[16];
+    if (!shown || old_program != program || old_bank != bank) {
+        snprintf(line, sizeof(line), "BANK %u  INST %u", bank + 1u, program + 1u);
+        text(line, 4, 6, 0xffff);
+    }
+    if (!shown || strcmp(old_name, name) != 0) { text("                ", 4, 32, 0); text(name, 4, 32, 0xffe0); }
+    if (!shown || old_value != value) {
+        snprintf(line, sizeof(line), "%d", value); text("      ", 4, 52, 0); text(line, 4, 52, 0xffff);
+    }
+    if (!shown || old_minimum != minimum || old_maximum != maximum) {
+        snprintf(line, sizeof(line), "%d..%d", minimum, maximum); text("          ", 4, 72, 0); text(line, 4, 72, 0x7bef);
+    }
+    if (!shown || old_sensor != simulated_sensor)
+        text(simulated_sensor ? "SENSOR SIM" : "SENSOR LIVE", 4, 108, 0x07ff);
+    shown = true; old_program = program; old_bank = bank; old_value = value;
+    old_minimum = minimum; old_maximum = maximum; old_sensor = simulated_sensor;
+    strncpy(old_name, name, sizeof(old_name) - 1u); old_name[sizeof(old_name) - 1u] = '\0';
 }
 #else
 void display_init(void) {}
