@@ -31,9 +31,9 @@ typedef struct {
 static button_t buttons[BUTTON_COUNT] = {
 #if PICO_RP2350
     { PIN_BUTTON_SENS_DOWN, false, false, 0, 0, false,
-      CONTROL_PARAMETER_PREVIOUS, CONTROL_NONE },
-    { PIN_BUTTON_SENS_UP, false, false, 0, 0, false,
       CONTROL_PARAMETER_NEXT, CONTROL_NONE },
+    { PIN_BUTTON_SENS_UP, false, false, 0, 0, false,
+      CONTROL_PARAMETER_PREVIOUS, CONTROL_NONE },
     { PIN_BUTTON_MODE, false, false, 0, 0, false,
       CONTROL_PARAMETER_INCREASE, CONTROL_NONE },
     { PIN_BUTTON_ROOT_DOWN, false, false, 0, 0, false,
@@ -242,7 +242,10 @@ control_event_t controls_poll(void) {
     #endif
 
     for (unsigned i = 0; i < BUTTON_COUNT; ++i) {
-        if (i == MODE_BUTTON_INDEX || !buttons[i].stable_pressed) continue;
+        if (!buttons[i].stable_pressed) continue;
+#if !PICO_RP2350
+        if (i == MODE_BUTTON_INDEX) continue;
+#endif
         if ((raw_chord_active && i <= SENS_UP_INDEX) ||
             (midi_chord_active && i >= VOLUME_DOWN_INDEX)) continue;
         if ((int32_t)(now - buttons[i].next_repeat_us) >= 0) {

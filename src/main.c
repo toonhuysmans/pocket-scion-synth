@@ -20,6 +20,14 @@ static uint8_t display_parameter;
 #define DISPLAY_GLOBAL_COUNT 9u
 #define DISPLAY_VOICE_PARAMETER_COUNT SYNTH_EDITOR_PATCH_SHARED_COUNT
 #define DISPLAY_PARAMETER_COUNT (DISPLAY_GLOBAL_COUNT + 3u * DISPLAY_VOICE_PARAMETER_COUNT)
+static const char *const voice_parameter_names[47] = {
+    "OSC1 WAVE", "OSC1 SHAPE", "OSC1 MORPH", "SUB/NOISE", "OSC2 WAVE", "OSC2 COARSE", "OSC2 FINE", "OSC MIX",
+    "CUTOFF", "RESONANCE", "FILTER EG", "KEY TRACK", "MOD ATTACK", "MOD DECAY", "MOD SUSTAIN", "MOD RELEASE",
+    "MOD OSC AMT", "MOD OSC DEST", "VOICE MODE", "PORTAMENTO", "LFO WAVE", "LFO RATE", "LFO DEPTH", "LFO FADE",
+    "LFO OSC AMT", "LFO OSC DEST", "LFO FILTER", "AMP GAIN", "AMP ATTACK", "AMP DECAY", "AMP SUSTAIN", "AMP RELEASE",
+    "FILTER MODE", "AMP EG MOD", "REL=DECAY", "BEND RANGE", "BREATH FILTER", "BREATH AMP", "ENV VELOCITY", "AMP VELOCITY",
+    "ASSIGN MODE", "CHORUS MIX", "CHORUS RATE", "CHORUS DEPTH", "DELAY FEEDBACK", "DELAY TIME", "DELAY MODE"
+};
 #endif
 
 static void show_display_state(void) {
@@ -50,8 +58,9 @@ static void show_display_state(void) {
                                    &editor_value);
             value = editor_value;
             static const char *lanes[] = {"BASS", "PAD", "LEAD"};
-            char label[16];
-            snprintf(label, sizeof(label), "%s P%u", lanes[lane], parameter);
+            char label[24];
+            if (parameter < 47u) snprintf(label, sizeof(label), "%s %s", lanes[lane], voice_parameter_names[parameter]);
+            else snprintf(label, sizeof(label), "%s P%u", lanes[lane], parameter);
             display_show_parameter(label, value, 0, 127,
                                    synth.program_index, synth.bank_index, true);
             return;
