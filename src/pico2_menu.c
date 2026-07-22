@@ -246,7 +246,8 @@ bool pico2_menu_handle(synth_t *s,control_event_t e){
 void pico2_menu_service(synth_t *s){
     uint64_t now=time_us_64();
     bool voice_active=sam_voice_active();
-    if(voice_active&&!menu.voice_was_active&&s->speech_last_phrase<SAM_VOICE_PHRASE_COUNT){
+    if(menu.saver_state==2u&&voice_active&&!menu.voice_was_active&&
+       s->speech_last_phrase<SAM_VOICE_PHRASE_COUNT){
         if(synth_editor_get_phrase(s,synth_program_id(s),s->speech_last_phrase,
                                    menu.speech_text,sizeof(menu.speech_text))){
             menu.speech_showing=true;menu.word_offset=0u;menu.next_word_us=now;
