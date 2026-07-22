@@ -182,8 +182,11 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
     static uint8_t old_x[20], old_y[20];
     static bool valid;
     if (valid) for (unsigned i = 0; i < 20u; ++i) block(old_x[i], old_y[i], 3, 3, 0);
-    unsigned a = 2u + (motion & 3u);
-    unsigned b = 3u + (density % 5u);
+    // Higher, deliberately separated ratios create multi-lobed Lissajous
+    // figures instead of spending most of the time near an ellipse.
+    unsigned a = 3u + (motion % 6u);
+    unsigned b = 7u + ((density + sensor / 24u) % 7u);
+    if (b == a || b == a * 2u) ++b;
     uint16_t colour = (uint16_t)((((sensor >> 2u) & 31u) << 11u) |
         (((motion + 24u) & 63u) << 5u) | ((density + 12u) & 31u));
     if (colour == 0u) colour = 0x07ffu;
