@@ -30,6 +30,21 @@ static void finish_screensaver_dma(void) {
     gpio_put(LCD_CS, 1);
     screensaver_dma_active = false;
 }
+static uint16_t screensaver_colour(uint8_t hue, uint8_t level) {
+    unsigned region = hue / 43u;
+    unsigned ramp = (hue - region * 43u) * 6u;
+    unsigned r = 0u, g = 0u, b = 0u;
+    switch (region) {
+        case 0: r = 255u; g = ramp; break;
+        case 1: r = 255u - ramp; g = 255u; break;
+        case 2: g = 255u; b = ramp; break;
+        case 3: g = 255u - ramp; b = 255u; break;
+        case 4: r = ramp; b = 255u; break;
+        default: r = 255u; b = 255u - ramp; break;
+    }
+    r = r * level / 255u; g = g * level / 255u; b = b * level / 255u;
+    return (uint16_t)(((r >> 3u) << 11u) | ((g >> 2u) << 5u) | (b >> 3u));
+}
 
 static void command(uint8_t value) {
     gpio_put(LCD_DC, 0); gpio_put(LCD_CS, 0);
@@ -213,6 +228,12 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
         point_x[i] = (uint8_t)x; point_y[i] = (uint8_t)y;
     }
     for (unsigned i = 0; i < 256u; ++i) {
+        uint8_t hue = (uint8_t)(i + ((unsigned)phase << 2u) +
+                                (unsigned)motion * 3u +
+                                (unsigned)density * 7u + sensor);
+        unsigned light = 128u + sensor / 2u + density * 3u;
+        if (light > 255u) light = 255u;
+        uint16_t colour = screensaver_colour(hue, (uint8_t)light);
         int x0=point_x[i], y0=point_y[i];
         int x1=point_x[(i+1u)&255u], y1=point_y[(i+1u)&255u];
         int dx=x1>x0?x1-x0:x0-x1, sx=x0<x1?1:-1;
@@ -220,7 +241,8 @@ void display_screensaver_step(uint8_t phase, uint8_t motion,
         int error=dx+dy;
         for (;;) {
             unsigned pixel=((unsigned)y0*240u+(unsigned)x0)*2u;
-            screensaver_frame[pixel]=0x07u;screensaver_frame[pixel+1u]=0xffu;
+            screensaver_frame[pixel]=(uint8_t)(colour>>8u);
+            screensaver_frame[pixel+1u]=(uint8_t)colour;
             if(x0==x1&&y0==y1)break;
             int twice=error*2;
             if(twice>=dy){error+=dy;x0+=sx;}
