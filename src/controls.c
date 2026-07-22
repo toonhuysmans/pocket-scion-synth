@@ -68,7 +68,14 @@ void controls_init(void) {
     for (unsigned i = 0; i < BUTTON_COUNT; ++i) {
         gpio_init(buttons[i].pin);
         gpio_set_dir(buttons[i].pin, GPIO_IN);
+#if PICO_RP2350
+        // Pimoroni Display Pack buttons pull their GPIOs low when pressed.
+        // The Pocket SCION PCB provides its own biasing, but the standalone
+        // Pico 2 setup needs an explicit idle-high state.
+        gpio_pull_up(buttons[i].pin);
+#else
         gpio_disable_pulls(buttons[i].pin);
+#endif
     }
     gpio_init(PIN_AUX_ACTIVE_LOW);
     gpio_set_dir(PIN_AUX_ACTIVE_LOW, GPIO_IN);
