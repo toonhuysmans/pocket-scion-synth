@@ -174,7 +174,7 @@ void display_clear_band(unsigned band) {
 void display_screensaver_step(uint8_t phase, uint8_t motion,
                               uint8_t density, uint8_t sensor) {
 #define LISSAJOUS_POINT_COUNT 256u
-#define LISSAJOUS_POINTS_PER_STEP 32u
+#define LISSAJOUS_POINTS_PER_STEP 256u
     static const int8_t sine[64] = {
         0,12,25,37,49,60,71,81,90,98,106,112,117,122,125,126,
         127,126,125,122,117,112,106,98,90,81,71,60,49,37,25,12,
