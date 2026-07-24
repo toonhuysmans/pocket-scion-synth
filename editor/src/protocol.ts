@@ -96,10 +96,19 @@ export class PocketScionConnection extends EventTarget {
     }).requestMIDIAccess;
     if (!requestMIDIAccess) throw new Error("Web MIDI is unavailable. Use desktop Chrome or Edge.");
     this.access = await requestMIDIAccess.call(navigator, { sysex: true });
+    const connected = <T extends MidiPortLike>(ports: Map<string, T>): T[] =>
+      [...ports.values()].filter(port => port.state !== "disconnected");
+    const inputs = connected(this.access.inputs);
+    const outputs = connected(this.access.outputs);
     const matches = (port: MidiPortLike) => /pocket\s*scion|pra32/i.test(port.name ?? "");
-    this.input = [...this.access.inputs.values()].find(matches);
-    this.output = [...this.access.outputs.values()].find(matches);
-    if (!this.input || !this.output) throw new Error("Pocket SCION MIDI ports were not found.");
+    this.input = inputs.find(matches) ?? (inputs.length === 1 ? inputs[0] : undefined);
+    this.output = outputs.find(matches) ?? (outputs.length === 1 ? outputs[0] : undefined);
+    if (!this.input || !this.output) {
+      const describe = (ports: MidiPortLike[]) => ports.length
+        ? ports.map(port => `“${port.name || "unnamed"}” (${port.state || "unknown"})`).join(", ")
+        : "none";
+      throw new Error(`Chrome did not expose a usable MIDI pair. Inputs: ${describe(inputs)}. Outputs: ${describe(outputs)}.`);
+    }
     await Promise.all([this.input.open(), this.output.open()]);
     this.input.onmidimessage = event => this.receive(event.data);
     this.access.onstatechange = () => this.dispatchEvent(new Event("statechange"));

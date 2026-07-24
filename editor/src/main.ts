@@ -51,7 +51,14 @@ function patchId(): number { return Number(bankSelect.value) * 16 + Number(patch
 function addressed(scope: number, target: number, tail: number[] = []): number[] {
   return [scope, ...connection.targetBytes(target), ...tail];
 }
-function setStatus(message: string, error = false): void { status.textContent = message; status.style.color = error ? "#e49a8c" : "#aab3a3"; }
+function setStatus(message: string, error = false): void {
+  status.textContent = message;
+  status.style.color = error ? "#e49a8c" : "#aab3a3";
+  if (error && !capabilities) {
+    $("#connection-label").textContent = message;
+    $("#connection-label").classList.add("error");
+  }
+}
 function markDirty(scope: "patch" | "bank" | "globals"): void { dirty.add(scope); renderDirty(); }
 function renderDirty(): void { $("#dirty").textContent = dirty.size ? `Unsaved: ${[...dirty].join(", ")}` : "Saved"; }
 
@@ -1402,6 +1409,8 @@ async function run(action: () => Promise<void>, pending: string): Promise<void> 
 }
 
 $("#connect").addEventListener("click", () => run(async () => {
+  $("#connection-label").classList.remove("error");
+  $("#connection-label").textContent = "Connecting…";
   capabilities = await connection.connect();
   populateBanks(capabilities.bankCount);
   sensorSnapshotSupported = undefined;

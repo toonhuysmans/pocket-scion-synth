@@ -3,6 +3,16 @@
 
 #include "tusb.h"
 
+#if defined(PICO_RP2350) && PICO_RP2350
+#define USB_DEVICE_REVISION 0x0270
+#define USB_PRODUCT_NAME "Pocket SCION Pico 2 Synth"
+#define USB_SERIAL_NUMBER "PS-PICO2-172839"
+#else
+#define USB_DEVICE_REVISION 0x0220
+#define USB_PRODUCT_NAME "Pocket SCION Synth"
+#define USB_SERIAL_NUMBER "172839"
+#endif
+
 static const tusb_desc_device_t device_descriptor = {
     .bLength = sizeof(tusb_desc_device_t),
     .bDescriptorType = TUSB_DESC_DEVICE,
@@ -13,7 +23,7 @@ static const tusb_desc_device_t device_descriptor = {
     .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
     .idVendor = 0x2e8a,
     .idProduct = 0x10a1,
-    .bcdDevice = 0x0220,
+    .bcdDevice = USB_DEVICE_REVISION,
     .iManufacturer = 1,
     .iProduct = 2,
     .iSerialNumber = 3,
@@ -48,8 +58,8 @@ const uint8_t *tud_descriptor_configuration_cb(uint8_t index) {
 static const char *const strings[] = {
     (const char[]){0x09, 0x04},
     "Instruo",
-    "Pocket SCION Synth",
-    "172839",
+    USB_PRODUCT_NAME,
+    USB_SERIAL_NUMBER,
 };
 static uint16_t string_descriptor[32];
 
